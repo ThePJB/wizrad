@@ -163,3 +163,7 @@ Some have a cooldown
 
 caster_component last_cast
 if spell cooldown && if holdy = held
+
+poison ground, slow ground, holy ground
+
+lol they would shoot at your projectiles too

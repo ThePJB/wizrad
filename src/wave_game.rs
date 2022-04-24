@@ -83,6 +83,7 @@ pub struct WaveGame {
     timed_life: HashMap<u32, TimedLife>,
     melee_damage: HashMap<u32, MeleeDamage>,
     emitter: HashMap<u32, Emitter>,
+    ai_caster: HashMap<u32, AICaster>,
 }
 
 impl WaveGame {
@@ -103,6 +104,7 @@ impl WaveGame {
             timed_life: HashMap::new(),
             melee_damage: HashMap::new(),
             emitter: HashMap::new(),
+            ai_caster: HashMap::new(),
         };
 
         wg.add_player(Vec2::new(0.0, 0.0));
@@ -199,6 +201,41 @@ impl WaveGame {
         self.render.insert(id, Render::Colour(Vec3::new(0.7, 0.0, 0.0)));
         self.melee_damage.insert(id, MeleeDamage { amount: 20.0 });
     }
+    pub fn add_caster_enemy(&mut self, pos: Vec2) {
+        let id = self.entity_id_counter;
+        self.entity_id_counter += 1;
+        
+        self.entity_ids.insert(id);
+        self.common.insert(id, Common {
+            team: TEAM_ENEMIES, 
+            rect: Rect::new_centered(pos.x, pos.y, 0.9, 0.9),
+            speed: 3.0, 
+            velocity: Vec2::new(0.0, 0.0),
+        });
+        self.health.insert(id, Health {
+            current: 20.0,
+            max: 20.0,
+            regen: 1.0,
+            invul_time: 0.0,
+        });
+        self.ai.insert(id, AI { 
+            kind: AIKind::Rush,
+            target_location: pos, 
+            last_update: 0.0, 
+            update_interval: 0.0,
+        });
+        self.ai_caster.insert(id, AICaster { 
+            spell: Spell::Missile,
+            acquisition_range: 7.0,
+        });
+        self.caster.insert(id, Caster { 
+            mana_max: 50.0,
+            mana_regen: 5.0,
+            mana: 0.0,
+            last_cast: 0.0,
+        });
+        self.render.insert(id, Render::Colour(Vec3::new(0.0, 0.8, 0.8)));
+    }
 
     pub fn add_projectile(&mut self, caster: u32, target: Vec2) {
         let id = self.entity_id_counter;
@@ -241,7 +278,7 @@ impl WaveGame {
         self.entity_id_counter += 1;
         self.entity_ids.insert(id);
 
-        let lifespan = kuniform(id * 4234777, 0.5, 0.7);
+        let lifespan = kuniform(id * 4234777, 0.6, 0.8);
 
         let (team, pos, v) = {
             let caster_comp = self.common.get(&caster).unwrap();
@@ -251,7 +288,7 @@ impl WaveGame {
             (team, caster_pos, v)
         };
 
-        let spray = 0.2;
+        let spray = 0.25;
         let spray_angle = kuniform(id * 4134123, -spray, spray);
         let v = v.rotate(spray_angle);
 
@@ -294,6 +331,7 @@ impl WaveGame {
         self.timed_life.remove(&entity_id);
         self.melee_damage.remove(&entity_id);
         self.emitter.remove(&entity_id);
+        self.ai_caster.remove(&entity_id);
     }
 
     // p is in world space, how to make it into screen space
@@ -317,9 +355,10 @@ impl WaveGame {
             match spell {
                 Spell::ConeFlames => {
                     // frame rate dependent...... needs to emit a certain amount per unit time
-                    let cost = 1.0;
+                    let cost = 0.8;
                     if cc.mana > cost {
                         cc.mana -= cost;
+                        self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
@@ -328,7 +367,7 @@ impl WaveGame {
                 Spell::Missile => {
                     if repeat { return; }
                     if cc.last_cast + 0.5 > t { return ; }
-                    cc.last_cast += 0.5;
+                    cc.last_cast = t;
                     let cost = 10.0;
                     if cc.mana > cost {
                         cc.mana -= cost;
@@ -376,9 +415,10 @@ impl Scene for WaveGame {
                 _ => panic!("unreachable"),
             };
 
-            match khash(inputs.frame * 13498713) % 2 {
+            match khash(inputs.frame * 13498713) % 3 {
                 0 => self.add_fbm_enemy(pos),
                 1 => self.add_zerg_enemy(pos),
+                2 => self.add_caster_enemy(pos),
                 _ => panic!("unreachable"),
             }
         }
@@ -387,6 +427,13 @@ impl Scene for WaveGame {
         let mut reset = false;
 
         // Inputs
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Escape, true) => {true}, _ => {false}}) {
+            return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
+        }
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
+            reset = true;
+        }
+
         for (id, cc) in self.player_controller.iter_mut() {
             let mut player_move_dir = Vec2::new(0.0, 0.0);
             if inputs.held_keys.contains(&VirtualKeyCode::W) {
@@ -415,12 +462,6 @@ impl Scene for WaveGame {
             } else if inputs.held_lmb {
                 commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor], true));
             }
-            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Escape, true) => {true}, _ => {false}}) {
-                return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
-            }
-            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
-                reset = true;
-            }
         }
         
         if reset {
@@ -444,13 +485,7 @@ impl Scene for WaveGame {
 
         self.particle_system.update(inputs.t as f32, inputs.dt as f32);
         
-        for command in commands {
-            match command {
-                Command::Cast(caster_id, target, spell, repeat) => {
-                    self.cast_spell(inputs.t as f32, caster_id, target, spell, repeat);
-                },
-            }
-        }
+
         // i need screen to world
         // world to screen is 
 
@@ -470,7 +505,15 @@ impl Scene for WaveGame {
                     if inputs.t - ai.last_update > ai.update_interval {
                         ai.last_update += ai.update_interval;
                         let seed = inputs.frame * 2351352729 + id * 423476581;
-                        ai.target_location = aic.rect.centroid() + Vec2::new(krand(seed) - 0.5, krand(seed + 1) - 0.5).normalize() * 2.0;
+
+                        if let Some(pos) = player_pos {
+                            if (aic.rect.centroid() - pos).magnitude() < 5.0 {
+                                ai.target_location = pos;
+                            } else {
+                                ai.target_location = aic.rect.centroid() + Vec2::new(krand(seed) - 0.5, krand(seed + 1) - 0.5).normalize() * 2.0;
+                            }
+                        }
+
                     }
                     
                 },
@@ -485,6 +528,25 @@ impl Scene for WaveGame {
             let speed = aic.speed.min(dist/inputs.dt as f32);
             aic.velocity = speed * (ai.target_location - aic.rect.centroid()).normalize();
         }
+
+        for (id, ai_caster) in self.ai_caster.iter() {
+            let (self_pos, self_team) = {
+                let self_com = self.common.get(id).unwrap();
+                (self_com.rect.centroid(), self_com.team)
+            };
+            if let Some((target_id, target_com)) = self.common.iter().filter(|(id, c)| c.team != self_team && (c.rect.centroid() - self_pos).magnitude() < ai_caster.acquisition_range).nth(0) {
+                commands.push(Command::Cast(*id, target_com.rect.centroid(), ai_caster.spell, false));
+            }
+        }
+
+        for command in commands {
+            match command {
+                Command::Cast(caster_id, target, spell, repeat) => {
+                    self.cast_spell(inputs.t as f32, caster_id, target, spell, repeat);
+                },
+            }
+        }
+
 
         let mut dead_list = Vec::new();
 
@@ -507,12 +569,17 @@ impl Scene for WaveGame {
                     return false;
                 }
             }
+            let steam = self.common.get(&ce.subject).unwrap().team;
+            let oteam = self.common.get(&ce.object).unwrap().team;
+            if steam == oteam {return false};
+            
             true
         });
 
         // handle projectile impacts
         for ce in collision_events.iter() {
             if let Some(proj) = self.projectile.get(&ce.subject) {
+                
                 if let Some(health) = self.health.get_mut(&ce.object) {
                     health.current -= proj.damage;
                     if health.current <= 0.0 {

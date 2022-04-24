@@ -52,6 +52,7 @@ impl Vec2 {
     pub fn mul_scalar(&self, scalar: f32) -> Vec2 { Vec2::new(self.x * scalar, self.y * scalar) }
     pub fn div_scalar(&self, scalar: f32) -> Vec2 { Vec2::new(self.x / scalar, self.y / scalar) }
     pub fn magnitude(&self) -> f32 { (self.x*self.x + self.y*self.y).sqrt() }
+    pub fn dist(&self, other: Vec2) -> f32 { (*self - other).magnitude() }
     pub fn normalize(&self) -> Vec2 { let m = self.magnitude(); if m == 0.0 { *self } else { self.div_scalar(self.magnitude()) }}
     pub fn lerp(&self, other: Vec2, t: f32) -> Vec2 { Vec2::new(self.x*(1.0-t) + other.x*(t), self.y*(1.0-t) + other.y*(t)) }
     pub fn rotate(&self, radians: f32) -> Vec2 { 

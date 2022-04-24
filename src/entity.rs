@@ -7,7 +7,7 @@ pub struct Entity {
     melee_damage: Option<MeleeDamage>,
     projectile: Option<Projectile>,
     render: Option<Render>,
-    timed_life: Option<TimedLife>,
+    expiry: Option<Expiry>,
 }
 
 impl Entity {

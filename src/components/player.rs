@@ -1,6 +1,6 @@
 use crate::wave_game::*;
 
-pub struct PlayerController {
+pub struct Player {
     pub spellbook: Vec<Spell>,
     pub spell_cursor: usize,
 }

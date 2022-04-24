@@ -9,6 +9,7 @@ mod kgui;
 mod collision_system;
 mod components;
 mod particles;
+mod entity_definitions;
 
 use application::*;
 use glutin::event::{Event, WindowEvent};

@@ -227,3 +227,7 @@ temptation to encapsulate entity system:
 
 
 not sure about spells hey. maybe typeclass them and have function pointers
+
+
+what to do about spells and entities?
+Do we enstate the entity object

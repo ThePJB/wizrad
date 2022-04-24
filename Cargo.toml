@@ -18,3 +18,5 @@ palette = "0.2.1"
 assert_hex = "0.2.2"
 
 itertools = "0.10.3"
+
+ordered-float = "2.0"

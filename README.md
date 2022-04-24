@@ -167,3 +167,63 @@ if spell cooldown && if holdy = held
 poison ground, slow ground, holy ground
 
 lol they would shoot at your projectiles too
+
+add fireball
+projectile -> friendly fire, aoe
+smoke particles
+death animation. splat, mayeb a big emitter?
+
+splat would be good
+could have a splat system like the particle system
+just have some munted square drawing thing til i get textures
+splats can just be entities
+mabye spawn a splat entity
+can drawing just be f(id, p, t) -> RenderBuffer ???
+ie the render component
+
+probably best done through spawn_on_death etc
+
+
+so now I can just accumulate a list of new entities each frame and spawn them all at the end.
+
+how about the spell system?
+
+i should get rid of common
+aabb component
+logic for make systems code easier
+
+
+maybe I can achieve fire splat just with OnDeath(f(&mut EntitySystem, dier) -> ())
+as a plus that can test the function thing
+
+
+
+
+# Refactor Notes
+refactor getting really necessary
+
+take system code to other files? with relevant components?
+
+entity definitions - one per file?
+    its a little clunky, I guess its just a lot of data to have to provide either way
+    be good to encapsulate in a simple object so other things could be like 'makes this entity'
+    and also helper functions / prefabs
+
+The thing is, for a lot of the components I would like to use functions. Render is the perfect example, please just f(id, &EntitySystem, t) -> TriangleBuffer. That encapsulates everything I'm ever going to want to express.
+OnDeath(f(&mut EntitySystem) -> ())
+
+a lot of spells spawn some number of entities
+
+spell has a lot of inputs, usually the caster, maybe a target point, it could depend on other entities too.
+
+Entity objects, probably good
+    - type class is not so distinguished though
+
+temptation to encapsulate entity system:
+    - not sure, might be bad for performance, might require frustrating coarse borrowing
+    - a lot of is/get/set id, might be fine
+    - systems maintaining lists of interest, not a bad idea
+    - filter (has_health(x))
+
+
+not sure about spells hey. maybe typeclass them and have function pointers

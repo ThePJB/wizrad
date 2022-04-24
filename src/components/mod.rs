@@ -7,3 +7,4 @@ pub mod render;
 pub mod timed_life;
 pub mod melee_damage;
 pub mod emitter;
+pub mod player_controller;

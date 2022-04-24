@@ -60,6 +60,9 @@ impl Vec2 {
             self.x * radians.sin() + self.y * radians.cos()
         ) 
     }
+    pub fn offset_r_theta(&self, r: f32, theta: f32) -> Vec2 {
+        *self + Vec2::new(r, 0.0).rotate(theta)
+    }
 }
 
 impl std::ops::Sub<Vec2> for Vec2 {

@@ -3,6 +3,7 @@ use crate::kmath::*;
 pub enum Render {
     Colour(Vec3),
     FOfT(FOfT),
+    FireSplat(f32),
 }
 
 pub struct FOfT {

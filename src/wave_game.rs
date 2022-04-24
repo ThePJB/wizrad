@@ -1,4 +1,5 @@
 use crate::application::*;
+use crate::components::caster;
 use crate::components::melee_damage::MeleeDamage;
 use crate::particles::*;
 use crate::renderer::*;
@@ -16,9 +17,12 @@ use crate::components::projectile::*;
 use crate::components::render::*;
 use crate::components::timed_life::*;
 use crate::components::emitter::*;
+use crate::components::player_controller::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::f32::INFINITY;
+use std::f32::consts::PI;
 
 use glutin::event::VirtualKeyCode;
 
@@ -48,15 +52,13 @@ or you have combinatorial explostion for each heterogenous category (but it is f
 pub enum Spell {
     Missile,
     ConeFlames,
+    SummonRushers,
     HealSelf,
     Fireball,
     CurseOfFear,
 }
 
-pub struct PlayerController {
-    spellbook: Vec<Spell>,
-    spell_cursor: usize,
-}
+
 
 // how about entity IDs
 // if I had a controllable storm cloud what would happen:
@@ -125,7 +127,7 @@ impl WaveGame {
 
         self.entity_ids.insert(id);
         self.player_controller.insert(id, PlayerController {
-            spellbook: vec![Spell::Missile, Spell::ConeFlames], 
+            spellbook: vec![Spell::Missile, Spell::ConeFlames, Spell::SummonRushers, Spell::Fireball], 
             spell_cursor: 0,
         });
         self.common.insert(id, Common {
@@ -175,13 +177,13 @@ impl WaveGame {
         self.render.insert(id, Render::Colour(Vec3::new(1.0, 0.0, 0.0)));
         self.melee_damage.insert(id, MeleeDamage { amount: 20.0 });
     }
-    pub fn add_zerg_enemy(&mut self, pos: Vec2) {
+    pub fn add_zerg_enemy(&mut self, team: u32, pos: Vec2) {
         let id = self.entity_id_counter;
         self.entity_id_counter += 1;
         
         self.entity_ids.insert(id);
         self.common.insert(id, Common {
-            team: TEAM_ENEMIES, 
+            team: team, 
             rect: Rect::new_centered(pos.x, pos.y, 0.5, 0.5),
             speed: 8.0, 
             velocity: Vec2::new(0.0, 0.0),
@@ -236,8 +238,43 @@ impl WaveGame {
         });
         self.render.insert(id, Render::Colour(Vec3::new(0.0, 0.8, 0.8)));
     }
+    pub fn add_summoner_enemy(&mut self, pos: Vec2) {
+        let id = self.entity_id_counter;
+        self.entity_id_counter += 1;
+        
+        self.entity_ids.insert(id);
+        self.common.insert(id, Common {
+            team: TEAM_ENEMIES, 
+            rect: Rect::new_centered(pos.x, pos.y, 1.2, 1.2),
+            speed: 2.0, 
+            velocity: Vec2::new(0.0, 0.0),
+        });
+        self.health.insert(id, Health {
+            current: 100.0,
+            max: 100.0,
+            regen: 1.0,
+            invul_time: 0.0,
+        });
+        self.ai.insert(id, AI { 
+            kind: AIKind::Rush,
+            target_location: pos, 
+            last_update: 0.0, 
+            update_interval: 0.0,
+        });
+        self.ai_caster.insert(id, AICaster { 
+            spell: Spell::SummonRushers,
+            acquisition_range: 4.0,
+        });
+        self.caster.insert(id, Caster { 
+            mana_max: 50.0,
+            mana_regen: 5.0,
+            mana: 50.0,
+            last_cast: 0.0,
+        });
+        self.render.insert(id, Render::Colour(Vec3::new(0.5, 0.0, 0.0)));
+    }
 
-    pub fn add_projectile(&mut self, caster: u32, target: Vec2) {
+    pub fn add_projectile(&mut self, caster: u32, target: Vec2, t: f32) {
         let id = self.entity_id_counter;
         self.entity_id_counter += 1;
         self.entity_ids.insert(id);
@@ -260,6 +297,7 @@ impl WaveGame {
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 34.0,
+            aoe: 0.0,
         });
         self.render.insert(id, Render::Colour(Vec3::new(0.8, 0.0, 0.8)));
         self.emitter.insert(id, Emitter {
@@ -270,7 +308,7 @@ impl WaveGame {
             speed: 2.0,
             lifespan: 0.7,
         });
-
+        self.timed_life.insert(id, TimedLife {expiry: t + 10.0});
     }
 
     pub fn add_flame_projectile(&mut self, caster: u32, target: Vec2, t: f32) {
@@ -301,6 +339,7 @@ impl WaveGame {
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 2.0,
+            aoe: 0.0,
         });
 
         self.render.insert(id, Render::FOfT(FOfT {
@@ -317,6 +356,55 @@ impl WaveGame {
             t_end: t + lifespan,
         }));
         self.timed_life.insert(id, TimedLife {expiry: t + lifespan});
+    }
+    pub fn add_fireball(&mut self, caster: u32, target: Vec2, t: f32) {
+        let id = self.entity_id_counter;
+        self.entity_id_counter += 1;
+        self.entity_ids.insert(id);
+
+        let (team, pos, v) = {
+            let caster_comp = self.common.get(&caster).unwrap();
+            let caster_pos = caster_comp.rect.centroid();
+            let v = (target - caster_comp.rect.centroid()).normalize() * 10.0;
+            let team = caster_comp.team;
+            (team, caster_pos, v)
+        };
+
+        self.common.insert(id, Common {
+            team: team, 
+            rect: Rect::new_centered(pos.x, pos.y, 0.5, 0.5),
+            speed: 10.0, 
+            velocity: v,
+        });
+        self.projectile.insert(id, Projectile {
+            source: caster,
+            damage: 50.0,
+            aoe: 2.5,
+        });
+        self.render.insert(id, Render::Colour(Vec3::new(1.0, 0.1, 0.0)));
+        self.emitter.insert(id, Emitter {
+            interval: 0.2,
+            last: 0.0,
+            size: Vec2::new(0.15, 0.15),
+            speed: 0.3,
+            colour: Vec3::new(0.3, 0.3, 0.3),
+            lifespan: 0.5,
+        });
+        self.timed_life.insert(id, TimedLife {expiry: t + 10.0});
+    }
+    pub fn add_firesplat(&mut self, target: Vec2, t: f32) {
+        let id = self.entity_id_counter;
+        self.entity_id_counter += 1;
+        self.entity_ids.insert(id);
+
+        self.common.insert(id, Common {
+            team: TEAM_NEUTRAL, 
+            rect: Rect::new_centered(target.x, target.y, 0.5, 0.5),
+            speed: 10.0, 
+            velocity: Vec2::new(0.0, 0.0),
+        });
+        self.render.insert(id, Render::FireSplat(2.5));
+        self.timed_life.insert(id, TimedLife {expiry: t + 0.7});
     }
 
     pub fn remove_entity(&mut self, entity_id: u32) {
@@ -356,7 +444,7 @@ impl WaveGame {
                 Spell::ConeFlames => {
                     // frame rate dependent...... needs to emit a certain amount per unit time
                     let cost = 0.8;
-                    if cc.mana > cost {
+                    if cc.mana >= cost {
                         cc.mana -= cost;
                         self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
@@ -366,12 +454,38 @@ impl WaveGame {
                 },
                 Spell::Missile => {
                     if repeat { return; }
-                    if cc.last_cast + 0.5 > t { return ; }
+                    if cc.last_cast + 0.3 > t { return ; }
                     cc.last_cast = t;
                     let cost = 10.0;
-                    if cc.mana > cost {
+                    if cc.mana >= cost {
                         cc.mana -= cost;
-                        self.add_projectile(caster_id, target);
+                        self.add_projectile(caster_id, target, t);
+                    }
+                },
+                Spell::Fireball => {
+                    if repeat { return; }
+                    if cc.last_cast + 0.3 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 30.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        self.add_fireball(caster_id, target, t);
+                    }
+                },
+                Spell::SummonRushers => {
+                    if repeat { return; }
+                    if cc.last_cast + 2.0 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 50.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        let (pos, team) = {
+                            let ccom = self.common.get(&caster_id).unwrap();
+                            (ccom.rect.centroid(), ccom.team)
+                        };
+                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
+                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
+                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
                     }
                 },
                 _ => {},
@@ -403,7 +517,7 @@ impl Scene for WaveGame {
 
 
         // spawning
-        let spawn_interval = 1.0;
+        let spawn_interval = 3.0;
         if inputs.t as f32 - self.last_spawn > spawn_interval {
             self.last_spawn = inputs.t as f32;
 
@@ -415,10 +529,11 @@ impl Scene for WaveGame {
                 _ => panic!("unreachable"),
             };
 
-            match khash(inputs.frame * 13498713) % 3 {
+            match khash(inputs.frame * 13498713) % 4 {
                 0 => self.add_fbm_enemy(pos),
-                1 => self.add_zerg_enemy(pos),
+                1 => self.add_zerg_enemy(TEAM_ENEMIES, pos),
                 2 => self.add_caster_enemy(pos),
+                3 => self.add_summoner_enemy(pos),
                 _ => panic!("unreachable"),
             }
         }
@@ -448,11 +563,15 @@ impl Scene for WaveGame {
             if inputs.held_keys.contains(&VirtualKeyCode::D) {
                 player_move_dir.x += 1.0;
             }
-            if inputs.held_keys.contains(&VirtualKeyCode::Q) {
+            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Q, true) => {true}, _ => {false}}) {
                 if cc.spell_cursor > 0 { cc.spell_cursor -= 1 }
+                let mut player_caster = self.caster.get_mut(id).unwrap();
+                player_caster.last_cast = 0.0;
             }
-            if inputs.held_keys.contains(&VirtualKeyCode::E) {
+            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::E, true) => {true}, _ => {false}}) {
                 if cc.spell_cursor < cc.spellbook.len() - 1 { cc.spell_cursor += 1 }
+                let mut player_caster = self.caster.get_mut(id).unwrap();
+                player_caster.last_cast = 0.0;
             }
             let pce = self.common.entry(*id);
             pce.and_modify(|e| e.velocity = player_move_dir.normalize() * e.speed);
@@ -498,7 +617,7 @@ impl Scene for WaveGame {
 
         // AI
         for (id, ai) in self.ai.iter_mut() {
-            let aic = self.common.get_mut(id).unwrap();
+            let aic = self.common.get(id).unwrap();
 
             match ai.kind {
                 AIKind::Roamer => {
@@ -518,7 +637,21 @@ impl Scene for WaveGame {
                     
                 },
                 AIKind::Rush => {
-                    if let Some(pos) = player_pos {
+                    let (self_pos, self_team) = {
+                        let self_com = self.common.get(id).unwrap();
+                        (self_com.rect.centroid(), self_com.team)
+                    };
+                    let target = self.common.iter()
+                    .filter(|(id, c)| c.team != self_team)
+                    .fold((INFINITY, None), |acc, e| {
+                        let d = (self_pos - e.1.rect.centroid()).magnitude();
+                        if d < acc.0 {
+                            (d, Some(e.1.rect.centroid()))
+                        } else {
+                            acc
+                        }
+                    }).1;
+                    if let Some(pos) = target {
                         ai.target_location = pos;
                     }
                 },
@@ -526,6 +659,7 @@ impl Scene for WaveGame {
 
             let dist = (ai.target_location - aic.rect.centroid()).magnitude();
             let speed = aic.speed.min(dist/inputs.dt as f32);
+            let aic = self.common.get_mut(id).unwrap();
             aic.velocity = speed * (ai.target_location - aic.rect.centroid()).normalize();
         }
 
@@ -534,8 +668,18 @@ impl Scene for WaveGame {
                 let self_com = self.common.get(id).unwrap();
                 (self_com.rect.centroid(), self_com.team)
             };
-            if let Some((target_id, target_com)) = self.common.iter().filter(|(id, c)| c.team != self_team && (c.rect.centroid() - self_pos).magnitude() < ai_caster.acquisition_range).nth(0) {
-                commands.push(Command::Cast(*id, target_com.rect.centroid(), ai_caster.spell, false));
+            let target = self.common.iter()
+                .filter(|(id, c)| c.team != self_team && (c.rect.centroid() - self_pos).magnitude() < ai_caster.acquisition_range)
+                .fold((INFINITY, None), |acc, e| {
+                    let d = (self_pos - e.1.rect.centroid()).magnitude();
+                    if d < acc.0 {
+                        (d, Some(e.1.rect.centroid()))
+                    } else {
+                        acc
+                    }
+                }).1;
+            if let Some(pos) = target {
+                commands.push(Command::Cast(*id, pos, ai_caster.spell, false));
             }
         }
 
@@ -579,11 +723,24 @@ impl Scene for WaveGame {
         // handle projectile impacts
         for ce in collision_events.iter() {
             if let Some(proj) = self.projectile.get(&ce.subject) {
-                
-                if let Some(health) = self.health.get_mut(&ce.object) {
-                    health.current -= proj.damage;
-                    if health.current <= 0.0 {
-                        dead_list.push(ce.object);
+                let impact_location = self.common.get(&ce.object).unwrap().rect.centroid();
+                let proj_team = self.common.get(&ce.subject).unwrap().team;
+                if proj.aoe > 0.0 {
+                    // self.add_firesplat(impact_location, inputs.t as f32);
+                    for (id, com) in self.common.iter().filter(|(id, com)| (com.rect.centroid() - impact_location).magnitude() <= proj.aoe && proj_team != com.team) {
+                        if let Some(health) = self.health.get_mut(&id) {
+                            health.current -= proj.damage;
+                            if health.current <= 0.0 {
+                                dead_list.push(*id);
+                            }
+                        }
+                    }
+                } else {
+                    if let Some(health) = self.health.get_mut(&ce.object) {
+                        health.current -= proj.damage;
+                        if health.current <= 0.0 {
+                            dead_list.push(ce.object);
+                        }
                     }
                 }
                 dead_list.push(ce.subject);
@@ -666,7 +823,23 @@ impl Scene for WaveGame {
                     let t = unlerp(inputs.t as f32, f_of_t.t_start, f_of_t.t_end);
                     let c = (f_of_t.f)(t);
                     buf.draw_rect(ec.rect, c, 3.0);
-                }
+                },
+                Render::FireSplat(r) => {
+                    let mut seed = inputs.frame * 123171717 + id * 123553;
+                    let pos = ec.rect.centroid();
+                    let mut draw_rect = |w, h, c, d| buf.draw_rect(Rect::new_centered(pos.x, pos.y, w, h), c, d);
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    seed *= 1711457123;
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    seed *= 1711457123;
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    seed *= 1711457123;
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                    seed *= 1711457123;
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                    seed *= 1711457123;
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                },
             }
         }
 

@@ -32,13 +32,15 @@ pub enum Spell {
     Missile,
     ConeFlames,
     SummonRushers,
-    HealSelf,
+    SummonSummoners,
     Fireball,
     CurseOfFear,
 }
 
 pub struct WaveGame {
     pub last_spawn: f32,
+
+    pub wave: i32,
 
     pub look_center: Vec2,
 
@@ -63,6 +65,7 @@ pub struct WaveGame {
 impl WaveGame {
     pub fn new() -> WaveGame {
         let mut wg = WaveGame {
+            wave: 0,
             last_spawn: 0.0,
             look_center: Vec2::new(0.0, 0.0),
             particle_system: ParticleSystem{particles: Vec::new()},
@@ -82,13 +85,6 @@ impl WaveGame {
         };
 
         wg.add_player(Vec2::new(0.0, 0.0));
-        for i in 0..30 {
-            let pos = Vec2::new(
-                (krand(i)-0.5) * 40.0,
-                (krand(i*1324121)-0.5) * 40.0,
-            );
-            wg.add_fbm_enemy(pos);
-        }
 
         wg
     }
@@ -129,7 +125,7 @@ impl WaveGame {
             match spell {
                 Spell::ConeFlames => {
                     // frame rate dependent...... needs to emit a certain amount per unit time
-                    let cost = 0.8;
+                    let cost = 1.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
                         self.add_flame_projectile(caster_id, target, t);
@@ -160,7 +156,7 @@ impl WaveGame {
                 },
                 Spell::SummonRushers => {
                     if repeat { return; }
-                    if cc.last_cast + 2.0 > t { return ; }
+                    if cc.last_cast + 0.3 > t { return ; }
                     cc.last_cast = t;
                     let cost = 50.0;
                     if cc.mana >= cost {
@@ -174,8 +170,46 @@ impl WaveGame {
                         self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
                     }
                 },
+                Spell::SummonSummoners => {
+                    if repeat { return; }
+                    if cc.last_cast + 0.3 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 100.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        let (pos, team) = {
+                            let ccom = self.common.get(&caster_id).unwrap();
+                            (ccom.rect.centroid(), ccom.team)
+                        };
+                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 0.0));
+                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
+                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
+                    }
+                },
                 _ => {},
             }
+        }
+    }
+
+    pub fn spawn(&mut self, id: u32, seed: u32) {
+        let level_min = -15.0;
+        let level_max = 15.0;
+
+        let pos = match khash(seed * 123415) % 4 {
+            0 => Vec2::new(level_min, kuniform(seed * 138971377, level_min, level_max)),
+            1 => Vec2::new(level_max, kuniform(seed * 138971377, level_min, level_max)),
+            2 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_min),
+            3 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_max),
+            _ => panic!("unreachable"),
+        };
+
+        match id {
+            0 => self.add_fbm_enemy(pos),
+            1 => self.add_zerg_enemy(TEAM_ENEMIES, pos),
+            2 => self.add_caster_enemy(pos),
+            3 => self.add_summoner_enemy(TEAM_ENEMIES, pos),
+            4 => self.add_summoner_summoner_enemy(TEAM_ENEMIES, pos),
+            _ => panic!("unreachable"),
         }
     }
 }
@@ -193,16 +227,15 @@ impl Scene for WaveGame {
     }
 
     fn frame(&mut self, inputs: FrameInputState) -> (SceneOutcome, TriangleBuffer, Option<TriangleBufferUV>) {
-        let level_min = -20.0;
-        let level_max = 20.0;
-
         let mouse_world = WaveGame::screen_to_world(inputs.mouse_pos, self.look_center, inputs.mouse_pos, inputs.screen_rect);
 
         let mut commands = Vec::new();
+        let mut dead_list = Vec::new();
 
-
+        let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
 
         // spawning
+        /*
         let spawn_interval = 3.0;
         if inputs.t as f32 - self.last_spawn > spawn_interval {
             self.last_spawn = inputs.t as f32;
@@ -223,7 +256,58 @@ impl Scene for WaveGame {
                 _ => panic!("unreachable"),
             }
         }
+        */
 
+        // new spawning
+        let enemy_count = self.common.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
+        if enemy_count == 0 {
+            self.wave += 1;
+            println!("Wave {}", self.wave);
+            let seed = khash(inputs.frame);
+            match self.wave {
+                1 => {
+                    for i in 0..10 {
+                        self.spawn(0, seed + i);
+                    }
+                    for i in 0..20 {
+                        self.spawn(1, seed * 12314121 + i);
+                    }
+                },
+                2 => {
+                    for i in 0..10 {
+                        self.spawn(0, seed + i);
+                    }
+                    for i in 0..20 {
+                        self.spawn(1, seed * 12314121 + i);
+                    }
+                    for i in 0..10 {
+                        self.spawn(2, seed * 12364171 + i);
+                    }
+                },
+                3 => {
+                    for i in 0..10 {
+                        self.spawn(0, seed + i);
+                    }
+                    for i in 0..10 {
+                        self.spawn(2, seed * 12314121 + i);
+                    }
+                    for i in 0..10 {
+                        self.spawn(3, seed * 12364171 + i);
+                    }
+                },
+                4 => {
+                    for i in 0..15 {
+                        self.spawn(2, seed * 12314121 + i);
+                    }
+                    for i in 0..5 {
+                        self.spawn(4, seed * 12364171 + i);
+                    }
+                },
+                _ => {
+                    println!("all done!")
+                },
+            }
+        }
 
         let mut reset = false;
 
@@ -233,6 +317,13 @@ impl Scene for WaveGame {
         }
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
             reset = true;
+        }
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
+            for (id, com) in self.common.iter() {
+                if com.team == TEAM_ENEMIES {
+                    dead_list.push(*id);
+                }
+            }
         }
 
         for (id, cc) in self.player.iter_mut() {
@@ -303,8 +394,6 @@ impl Scene for WaveGame {
         }
 
 
-        let mut dead_list = Vec::new();
-
         // update entities
         let mut collision_events = Vec::new();
         collide_entity_entity(&self.common, &mut collision_events, inputs.dt as f32);
@@ -323,8 +412,7 @@ impl Scene for WaveGame {
                 let impact_location = self.common.get(&ce.object).unwrap().rect.centroid();
                 let proj_team = self.common.get(&ce.subject).unwrap().team;
                 if proj.aoe > 0.0 {
-                    // self.add_firesplat(impact_location, inputs.t as f32);
-                    for (id, com) in self.common.iter().filter(|(id, com)| (com.rect.centroid() - impact_location).magnitude() <= proj.aoe && proj_team != com.team) {
+                    for (id, _) in self.common.iter().filter(|(id, com)| com.rect.centroid().dist(impact_location) <= proj.aoe && proj_team != com.team) {
                         if let Some(health) = self.health.get_mut(&id) {
                             health.current -= proj.damage;
                         }
@@ -333,6 +421,10 @@ impl Scene for WaveGame {
                     if let Some(health) = self.health.get_mut(&ce.object) {
                         health.current -= proj.damage;
                     }
+                }
+                let pos = self.common.get(&ce.subject).unwrap().rect.centroid();
+                if proj.splat_duration > 0.0 {
+                    self.add_firesplat(pos, inputs.t as f32);
                 }
                 dead_list.push(ce.subject);
             }
@@ -355,11 +447,42 @@ impl Scene for WaveGame {
             }
         }
 
+
+
+        apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
+
+        // constrain to arena
+        for (id, com) in self.common.iter_mut() {
+
+            if com.rect.top() < level_rect.top() {
+                com.rect.y += (level_rect.top() - com.rect.top());
+                if self.projectile.contains_key(id) {
+                    dead_list.push(*id);
+                }
+            }
+            if com.rect.bot() > level_rect.bot() {
+                com.rect.y += (level_rect.bot() - com.rect.bot());
+                if self.projectile.contains_key(id) {
+                    dead_list.push(*id);
+                }
+            }
+            if com.rect.left() < level_rect.left() {
+                com.rect.x += (level_rect.left() - com.rect.left());
+                if self.projectile.contains_key(id) {
+                    dead_list.push(*id);
+                }
+            }
+            if com.rect.right() > level_rect.right() {
+                com.rect.x += (level_rect.right() - com.rect.right());
+                if self.projectile.contains_key(id) {
+                    dead_list.push(*id);
+                }
+            }
+        }
+
         for dead in dead_list {
             self.remove_entity(dead);
         }
-
-        apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
 
         if let Some((id, _)) = self.player.iter().nth(0) {
             let pc = self.common.get(id).unwrap();
@@ -386,7 +509,6 @@ impl Scene for WaveGame {
         self.draw_entities(&mut buf, inputs.t as f32, inputs.frame);
         
         // draw level
-        let level_rect = Rect::new_centered(0.0, 0.0, 40.0, 40.0);
         buf.draw_rect(level_rect, Vec3::new(0.3, 0.3, 0.3), 1.0);
         for i in 0..20 {
             for j in 0..20 {

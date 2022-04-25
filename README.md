@@ -231,3 +231,42 @@ not sure about spells hey. maybe typeclass them and have function pointers
 
 what to do about spells and entities?
 Do we enstate the entity object
+
+ok theres splats, theyre a bit cooked, its fine.
+
+Refactored a little bit, not sure if it helped.
+
+What should we do now, put in rounds?
+
+more enemies. big caster with mana aura, who shoots blue homing missiles (projectile with AI, constrained turning speed)
+
+
+needs more bullethell
+
+retalliator
+multishotter
+
+# Waves
+needs a clear & next wave key for practice
+## Wave 1
+a bunch of weird hoppy dudes and pursuing small dudes
+
+## Wave 2
++ casters
+
+## Wave 3
++ summoners instead of small dudes
+
+## Wave 4
+caster, bigCaster, summoner
+
+## Wave 5
+summoner summoner, caster
+
+then I can be like "what wave did you get up to cunt"
+
+edge walls - projectiles get destroyed, other shit gets pushed in
+make them wander inward
+wave 2 no work
+
+so much overlapping happens, can we just move them back along the penetration vector?

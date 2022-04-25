@@ -32,7 +32,7 @@ impl WaveGame {
         self.caster.insert(id, Caster { 
             mana: 100.0,
             mana_max: 100.0, 
-            mana_regen: 10.0,
+            mana_regen: 15.0,
             last_cast: 0.0,
         });
         self.health.insert(id, Health {
@@ -131,13 +131,13 @@ impl WaveGame {
         });
         self.render.insert(id, Render::Colour(Vec3::new(0.0, 0.8, 0.8)));
     }
-    pub fn add_summoner_enemy(&mut self, pos: Vec2) {
+    pub fn add_summoner_enemy(&mut self, team: u32, pos: Vec2) {
         let id = self.entity_id_counter;
         self.entity_id_counter += 1;
         
         self.entity_ids.insert(id);
         self.common.insert(id, Common {
-            team: TEAM_ENEMIES, 
+            team: team, 
             rect: Rect::new_centered(pos.x, pos.y, 1.2, 1.2),
             speed: 2.0, 
             velocity: Vec2::new(0.0, 0.0),
@@ -156,7 +156,7 @@ impl WaveGame {
         });
         self.ai_caster.insert(id, AICaster { 
             spell: Spell::SummonRushers,
-            acquisition_range: 4.0,
+            acquisition_range: 6.0,
         });
         self.caster.insert(id, Caster { 
             mana_max: 50.0,
@@ -165,6 +165,41 @@ impl WaveGame {
             last_cast: 0.0,
         });
         self.render.insert(id, Render::Colour(Vec3::new(0.5, 0.0, 0.0)));
+    }
+    pub fn add_summoner_summoner_enemy(&mut self, team: u32, pos: Vec2) {
+        let id = self.entity_id_counter;
+        self.entity_id_counter += 1;
+        
+        self.entity_ids.insert(id);
+        self.common.insert(id, Common {
+            team: team, 
+            rect: Rect::new_centered(pos.x, pos.y, 1.8, 1.8),
+            speed: 1.6, 
+            velocity: Vec2::new(0.0, 0.0),
+        });
+        self.health.insert(id, Health {
+            current: 200.0,
+            max: 200.0,
+            regen: 1.0,
+            invul_time: 0.0,
+        });
+        self.ai.insert(id, AI { 
+            kind: AIKind::Rush,
+            target_location: pos, 
+            last_update: 0.0, 
+            update_interval: 0.0,
+        });
+        self.ai_caster.insert(id, AICaster { 
+            spell: Spell::SummonSummoners,
+            acquisition_range: 6.0,
+        });
+        self.caster.insert(id, Caster { 
+            mana_max: 100.0,
+            mana_regen: 5.0,
+            mana: 100.0,
+            last_cast: 0.0,
+        });
+        self.render.insert(id, Render::Colour(Vec3::new(0.3, 0.0, 0.0)));
     }
 
     pub fn add_projectile(&mut self, caster: u32, target: Vec2, t: f32) {
@@ -191,6 +226,7 @@ impl WaveGame {
             source: caster,
             damage: 34.0,
             aoe: 0.0,
+            splat_duration: 0.0,
         });
         self.render.insert(id, Render::Colour(Vec3::new(0.8, 0.0, 0.8)));
         self.emitter.insert(id, Emitter {
@@ -233,6 +269,7 @@ impl WaveGame {
             source: caster,
             damage: 2.0,
             aoe: 0.0,
+            splat_duration: 0.0,
         });
 
         self.render.insert(id, Render::FOfT(FOfT {
@@ -272,7 +309,8 @@ impl WaveGame {
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 50.0,
-            aoe: 2.5,
+            aoe: 4.0,
+            splat_duration: 0.7,
         });
         self.render.insert(id, Render::Colour(Vec3::new(1.0, 0.1, 0.0)));
         self.emitter.insert(id, Emitter {
@@ -296,7 +334,7 @@ impl WaveGame {
             speed: 10.0, 
             velocity: Vec2::new(0.0, 0.0),
         });
-        self.render.insert(id, Render::FireSplat(2.5));
-        self.expiry.insert(id, Expiry {expiry: t + 0.7});
+        self.render.insert(id, Render::FireSplat(6.0));
+        self.expiry.insert(id, Expiry {expiry: t + 0.4});
     }
 }

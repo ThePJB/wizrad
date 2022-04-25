@@ -49,6 +49,7 @@ impl WaveGame {
                 AIKind::Rush => {
                     let target = self.common.iter()
                         .filter(|(id, com)| com.team != aic.team)
+                        .filter(|(id, _)| !self.projectile.contains_key(id))
                         .map(|x| x.1.rect.centroid())
                         .filter(|&x| aic.rect.centroid().dist(x) < 10.0)
                         .min_by_key(|&x| OrderedFloat(aic.rect.centroid().dist(x)));

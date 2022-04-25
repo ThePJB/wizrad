@@ -38,17 +38,17 @@ impl WaveGame {
                     let mut seed = frame * 123171717 + id * 123553;
                     let pos = ec.rect.centroid();
                     let mut draw_rect = |w, h, c, d| buf.draw_rect(Rect::new_centered(pos.x, pos.y, w, h), c, d);
-                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed+1, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
                     seed *= 1711457123;
-                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed+1, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
                     seed *= 1711457123;
-                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
+                    draw_rect(kuniform(seed, r/4.0, *r), r - kuniform(seed+1, r/4.0, *r), Vec3::new(1.0, 0.0, 0.0), 50.0);
                     seed *= 1711457123;
-                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed+1, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
                     seed *= 1711457123;
-                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed+1, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
                     seed *= 1711457123;
-                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
+                    draw_rect(kuniform(seed, r/8.0, *r/2.0), r - kuniform(seed+1, r/8.0, *r/2.0), Vec3::new(1.0, 1.0, 0.0), 60.0);
                 },
             }
         }        

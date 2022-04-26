@@ -9,3 +9,4 @@
  * WASD movement
  * QE flip through spellbook
  * left click to cast current spell
+ * Escape quit, R reset, M skip wave (no cheating)

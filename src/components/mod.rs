@@ -1,6 +1,6 @@
 pub mod ai;
 pub mod caster;
-pub mod entity_common;
+pub mod team;
 pub mod health;
 pub mod projectile;
 pub mod render;
@@ -8,3 +8,4 @@ pub mod expiry;
 pub mod melee_damage;
 pub mod emitter;
 pub mod player;
+pub mod physics;

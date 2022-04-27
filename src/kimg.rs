@@ -104,8 +104,11 @@ impl ImageBufferA {
         self.pixels[y*self.w + x]
     }
     
-    pub fn new_from_file(path_str: &str) -> ImageBufferA {
-        let decoder = png::Decoder::new(File::open(path_str).unwrap());
+    pub fn new_from_file(path_str: &str) -> Option<ImageBufferA> {
+        let result_file = File::open(path_str);
+        if result_file.is_err() {return None};
+        let file = result_file.unwrap();
+        let decoder = png::Decoder::new(file);
         let mut reader = decoder.read_info().unwrap();
         // Allocate the output buffer.
         let mut buf = vec![0; reader.output_buffer_size()];
@@ -122,7 +125,7 @@ impl ImageBufferA {
                 bytes_idx += 4;
             }
         }
-        image_buffer
+        Some(image_buffer)
     }
     // just copy lmao
     pub fn bytes(&self) -> Vec<u8> {

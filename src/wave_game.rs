@@ -10,7 +10,7 @@ use crate::collision_system::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
 
-use crate::components::entity_common::*;
+use crate::components::team::*;
 use crate::components::ai::*;
 use crate::components::health::*;
 use crate::components::caster::*;
@@ -19,22 +19,27 @@ use crate::components::render::*;
 use crate::components::expiry::*;
 use crate::components::emitter::*;
 use crate::components::player::*;
+use crate::components::physics::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::f32::INFINITY;
 use std::f32::consts::PI;
+use std::time::{Instant, Duration};
 
 use glutin::event::VirtualKeyCode;
 
 #[derive(Clone, Copy)]
 pub enum Spell {
     Missile,
+    Pulse,
+    Lifesteal,
+    SummonBloodcasters,
     ConeFlames,
     SummonRushers,
     SummonSummoners,
     Fireball,
-    CurseOfFear,
+    Water,
 }
 
 pub struct WaveGame {
@@ -50,7 +55,7 @@ pub struct WaveGame {
     pub entity_ids: HashSet<u32>,
 
     pub player: HashMap<u32, Player>,
-    pub common: HashMap<u32, Common>,
+    pub team: HashMap<u32, Team>,
     pub caster: HashMap<u32, Caster>,
     pub health: HashMap<u32, Health>,
     pub ai: HashMap<u32, AI>,
@@ -60,6 +65,7 @@ pub struct WaveGame {
     pub melee_damage: HashMap<u32, MeleeDamage>,
     pub emitter: HashMap<u32, Emitter>,
     pub ai_caster: HashMap<u32, AICaster>,
+    pub physics: HashMap<u32, Physics>,
 }
 
 impl WaveGame {
@@ -72,7 +78,7 @@ impl WaveGame {
             entity_id_counter: 0,
             entity_ids: HashSet::new(),
             player: HashMap::new(),
-            common: HashMap::new(),
+            team: HashMap::new(),
             caster: HashMap::new(),
             health: HashMap::new(),
             ai: HashMap::new(),
@@ -82,9 +88,12 @@ impl WaveGame {
             melee_damage: HashMap::new(),
             emitter: HashMap::new(),
             ai_caster: HashMap::new(),
+            physics: HashMap::new(),
         };
 
         wg.add_player(Vec2::new(0.0, 0.0));
+
+        println!("Welcome to WAVE GAME. Controls are WASD movement, Q-E spellbook page, Left click to cast. Survive all rounds. ");
 
         wg
     }
@@ -94,7 +103,7 @@ impl WaveGame {
         self.ai.remove(&entity_id);
         self.health.remove(&entity_id);
         self.player.remove(&entity_id);
-        self.common.remove(&entity_id);
+        self.team.remove(&entity_id);
         self.caster.remove(&entity_id);
         self.projectile.remove(&entity_id);
         self.render.remove(&entity_id);
@@ -102,6 +111,7 @@ impl WaveGame {
         self.melee_damage.remove(&entity_id);
         self.emitter.remove(&entity_id);
         self.ai_caster.remove(&entity_id);
+        self.physics.remove(&entity_id);
     }
 
     // p is in world space, how to make it into screen space
@@ -134,6 +144,20 @@ impl WaveGame {
                         self.add_flame_projectile(caster_id, target, t);
                     }
                 },
+                Spell::Water => {
+                    // frame rate dependent...... needs to emit a certain amount per unit time
+                    let cost = 0.4;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                        self.add_water_projectile(caster_id, target, t);
+                    }
+                },
                 Spell::Missile => {
                     if repeat { return; }
                     if cc.last_cast + 0.3 > t { return ; }
@@ -142,6 +166,25 @@ impl WaveGame {
                     if cc.mana >= cost {
                         cc.mana -= cost;
                         self.add_projectile(caster_id, target, t);
+                    }
+                },
+                Spell::Pulse => {
+                    if cc.last_cast + 0.1 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 12.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        self.add_pulse(caster_id, target, t);
+                    }
+                },
+                Spell::Lifesteal => {
+                    if cc.last_cast + 0.5 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 10.0;
+                    let mut hp = self.health.get_mut(&caster_id).unwrap();
+                    if hp.current >= cost {
+                        hp.current -= cost;
+                        self.add_blood_projectile(caster_id, target, t);
                     }
                 },
                 Spell::Fireball => {
@@ -161,13 +204,27 @@ impl WaveGame {
                     let cost = 50.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
-                        let (pos, team) = {
-                            let ccom = self.common.get(&caster_id).unwrap();
-                            (ccom.rect.centroid(), ccom.team)
-                        };
+                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let team = self.team.get(&caster_id).unwrap().team;
+
                         self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
                         self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
                         self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
+                    }
+                },
+                Spell::SummonBloodcasters => {
+                    if repeat { return; }
+                    if cc.last_cast + 0.3 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 50.0;
+                    let mut hp = self.health.get_mut(&caster_id).unwrap();
+                    if hp.current >= cost {
+                        hp.current -= cost;
+                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let team = self.team.get(&caster_id).unwrap().team;
+                        
+                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, 0.0));
+                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, PI));
                     }
                 },
                 Spell::SummonSummoners => {
@@ -177,10 +234,8 @@ impl WaveGame {
                     let cost = 100.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
-                        let (pos, team) = {
-                            let ccom = self.common.get(&caster_id).unwrap();
-                            (ccom.rect.centroid(), ccom.team)
-                        };
+                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let team = self.team.get(&caster_id).unwrap().team;
                         self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 0.0));
                         self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
                         self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
@@ -209,13 +264,15 @@ impl WaveGame {
             2 => self.add_caster_enemy(pos),
             3 => self.add_summoner_enemy(TEAM_ENEMIES, pos),
             4 => self.add_summoner_summoner_enemy(TEAM_ENEMIES, pos),
+            5 => self.add_pulsecaster_enemy(TEAM_ENEMIES, pos),
+            6 => self.add_bloodcaster(TEAM_ENEMIES, pos),
             _ => panic!("unreachable"),
         }
     }
 }
 
 pub const LOOK_STRENGTH: f32 = 0.2;
-pub const SCALE: f32 = 10.0;
+pub const SCALE: f32 = 20.0;
 
 pub enum Command {
     Cast(u32, Vec2, Spell, bool),
@@ -227,12 +284,16 @@ impl Scene for WaveGame {
     }
 
     fn frame(&mut self, inputs: FrameInputState) -> (SceneOutcome, TriangleBuffer, Option<TriangleBufferUV>) {
+
+        let start = Instant::now();
+
         let mouse_world = WaveGame::screen_to_world(inputs.mouse_pos, self.look_center, inputs.mouse_pos, inputs.screen_rect);
 
         let mut commands = Vec::new();
         let mut dead_list = Vec::new();
 
         let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
+
 
         // spawning
         /*
@@ -259,7 +320,7 @@ impl Scene for WaveGame {
         */
 
         // new spawning
-        let enemy_count = self.common.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
+        let enemy_count = self.team.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
         if enemy_count == 0 {
             self.wave += 1;
             println!("Wave {}", self.wave);
@@ -277,11 +338,11 @@ impl Scene for WaveGame {
                     for i in 0..10 {
                         self.spawn(0, seed + i);
                     }
-                    for i in 0..20 {
+                    for i in 0..10 {
                         self.spawn(1, seed * 12314121 + i);
                     }
                     for i in 0..10 {
-                        self.spawn(2, seed * 12364171 + i);
+                        self.spawn(6, seed * 12364171 + i);
                     }
                 },
                 3 => {
@@ -291,11 +352,23 @@ impl Scene for WaveGame {
                     for i in 0..10 {
                         self.spawn(2, seed * 12314121 + i);
                     }
-                    for i in 0..10 {
-                        self.spawn(3, seed * 12364171 + i);
+                    for i in 0..5 {
+                        self.spawn(5, seed * 95371 + i);
                     }
                 },
                 4 => {
+                    for i in 0..10 {
+                        self.spawn(0, seed + i);
+                    }
+                    for i in 0..10 {
+                        self.spawn(2, seed * 12314121 + i);
+                    }
+                    for i in 0..10 {
+                        self.spawn(3, seed * 12364171 + i);
+                    }
+
+                },
+                5 => {
                     for i in 0..15 {
                         self.spawn(2, seed * 12314121 + i);
                     }
@@ -319,7 +392,7 @@ impl Scene for WaveGame {
             reset = true;
         }
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
-            for (id, com) in self.common.iter() {
+            for (id, com) in self.team.iter() {
                 if com.team == TEAM_ENEMIES {
                     dead_list.push(*id);
                 }
@@ -350,8 +423,8 @@ impl Scene for WaveGame {
                 let mut player_caster = self.caster.get_mut(id).unwrap();
                 player_caster.last_cast = 0.0;
             }
-            let pce = self.common.entry(*id);
-            pce.and_modify(|e| e.velocity = player_move_dir.normalize() * e.speed);
+            let p_phys = self.physics.entry(*id);
+            p_phys.and_modify(|e| e.velocity = player_move_dir.normalize() * cc.speed);
             
             if inputs.events.iter().any(|e| match e { KEvent::MouseLeft(true) => {true}, _ => {false}}) {
                 commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor], false));
@@ -366,10 +439,12 @@ impl Scene for WaveGame {
 
         // emit particles
         for (id, ec) in self.emitter.iter_mut() {
+            let mut iter_count = 0;
             if ec.last + ec.interval < inputs.t as f32 {
+                iter_count += 1;
                 ec.last += ec.interval;
-                let pos = self.common.get(&id).unwrap().rect.centroid();
-                let seed = inputs.frame * 12315 + *id * 1412337;
+                let pos = self.physics.get(&id).unwrap().pos();
+                let seed = inputs.frame * 12315 + *id * 1412337 + iter_count;
                 self.particle_system.add_particle(Particle {
                     expiry: inputs.t as f32 + ec.lifespan,
                     velocity: Vec2::new(kuniform(seed, -1.0, 1.0), kuniform(seed * 1771715, -1.0, 1.0)).normalize() * ec.speed,
@@ -382,7 +457,7 @@ impl Scene for WaveGame {
         self.particle_system.update(inputs.t as f32, inputs.dt as f32);
         
         // AI
-        self.update_movement_ai(inputs.t as f32, inputs.dt as f32, inputs.frame);
+        self.update_movement_ai(inputs.t as f32, inputs.dt as f32, inputs.frame, level_rect);
         self.update_casting_ai(inputs.t as f32, &mut commands);
         
         for command in commands {
@@ -395,34 +470,56 @@ impl Scene for WaveGame {
 
 
         // update entities
-        let mut collision_events = Vec::new();
-        collide_entity_entity(&self.common, &mut collision_events, inputs.dt as f32);
+        self.move_entities(inputs.dt as f32);
+        let mut collision_events = self.collisions();
+        // let mut collision_events = Vec::new();
+        // collide_entity_entity(&self.common, &mut collision_events, inputs.dt as f32);
 
         collision_events.retain(|ce| {
-            let steam = self.common.get(&ce.subject).unwrap().team;
-            let oteam = self.common.get(&ce.object).unwrap().team;
-            if steam == oteam {return false};
-            if self.projectile.get(&ce.subject).is_some() && self.projectile.get(&ce.object).is_some() {return false};
+            if !self.team.contains_key(&ce.subject) {return false;}
+            if !self.team.contains_key(&ce.object) {return false;}
+
+            let steam = self.team.get(&ce.subject).unwrap().team;
+            let oteam = self.team.get(&ce.object).unwrap().team;
+            let sproj = self.projectile.get(&ce.subject).is_some();
+            let oproj = self.projectile.get(&ce.object).is_some();
+
+            if steam == oteam && (oproj || sproj) {
+                return false;
+            }
+            if oproj && sproj {
+                return false;
+            }
+
             return true
         });
 
         // handle projectile impacts
         for ce in collision_events.iter() {
             if let Some(proj) = self.projectile.get(&ce.subject) {
-                let impact_location = self.common.get(&ce.object).unwrap().rect.centroid();
-                let proj_team = self.common.get(&ce.subject).unwrap().team;
+                let impact_location = self.physics.get(&ce.object).unwrap().pos();
+                let proj_team = self.team.get(&ce.subject).unwrap().team;
+                let target_team = self.team.get(&ce.object).unwrap().team;
                 if proj.aoe > 0.0 {
-                    for (id, _) in self.common.iter().filter(|(id, com)| com.rect.centroid().dist(impact_location) <= proj.aoe && proj_team != com.team) {
+                    for (id, _) in self.physics.iter().filter(|(id, com)| com.rect.centroid().dist(impact_location) <= proj.aoe && proj_team != target_team) {
                         if let Some(health) = self.health.get_mut(&id) {
-                            health.current -= proj.damage;
+                            health.damage(proj.damage, inputs.t as f32);
+                            if let Some(caster_hp) = self.health.get_mut(&proj.source) {
+                                caster_hp.current += proj.lifesteal_percent * proj.damage;
+                                caster_hp.current = caster_hp.current.min(caster_hp.max);
+                            }
                         }
                     }
                 } else {
                     if let Some(health) = self.health.get_mut(&ce.object) {
-                        health.current -= proj.damage;
+                        health.damage(proj.damage, inputs.t as f32);
+                        if let Some(caster_hp) = self.health.get_mut(&proj.source) {
+                            caster_hp.current += proj.lifesteal_percent * proj.damage;
+                            caster_hp.current = caster_hp.current.min(caster_hp.max);
+                        }
                     }
                 }
-                let pos = self.common.get(&ce.subject).unwrap().rect.centroid();
+                let pos = self.physics.get(&ce.subject).unwrap().pos();
                 if proj.splat_duration > 0.0 {
                     self.add_firesplat(pos, inputs.t as f32);
                 }
@@ -449,10 +546,11 @@ impl Scene for WaveGame {
 
 
 
-        apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
+        self.fix_overlaps(&collision_events, inputs.dt as f32);
+        // apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
 
         // constrain to arena
-        for (id, com) in self.common.iter_mut() {
+        for (id, com) in self.physics.iter_mut() {
 
             if com.rect.top() < level_rect.top() {
                 com.rect.y += (level_rect.top() - com.rect.top());
@@ -485,8 +583,7 @@ impl Scene for WaveGame {
         }
 
         if let Some((id, _)) = self.player.iter().nth(0) {
-            let pc = self.common.get(id).unwrap();
-            self.look_center = pc.rect.centroid();
+            self.look_center = self.physics.get(id).unwrap().pos();
         }
 
         // regen
@@ -541,6 +638,11 @@ impl Scene for WaveGame {
             buf.draw_rect(mana_rect.child(0.0, 1.0 - player_mana_amount, 1.0, player_mana_amount), Vec3::new(0.0, 0.0, 1.0), 11.0);
         }
 
+
+        let frametime_ms = start.elapsed().as_secs_f32() * 1000.0;
+        if frametime_ms > 1.0 {
+            println!("whoa that frame took forever: {}ms", frametime_ms);
+        }
 
         (SceneOutcome::None, buf, None)
     }

@@ -2,18 +2,15 @@ use crate::kmath::*;
 use crate::wave_game::*;
 use ordered_float::*;
 use std::f32::INFINITY;
+use core::f32::consts::PI;
 
-pub enum AIKind {
-    Roamer,
-    Rush,
-}
 
 // AI movt -> pursue player
 pub struct AI {
-    pub kind: AIKind,
-    pub target_location: Vec2,
-    pub last_update: f32,
-    pub update_interval: f32,
+    pub dir: Vec2,
+    pub acquisition_range: f32,
+    pub flee_range: f32,
+    pub speed: f32,
 }
 
 pub struct AICaster {
@@ -22,69 +19,59 @@ pub struct AICaster {
 }
 
 impl WaveGame {
-    pub fn update_movement_ai(&mut self, t: f32, dt: f32, frame: u32){
+    pub fn update_movement_ai(&mut self, t: f32, dt: f32, frame: u32, level_rect: Rect){
         for (id, ai) in self.ai.iter_mut() {
-            let aic = self.common.get(id).unwrap();
+            let my_team = self.team.get(id).unwrap().team;
+            let my_phys = self.physics.get(id).unwrap();
+            let my_pos = my_phys.pos();
 
-            match ai.kind {
-                AIKind::Roamer => {
-                    if t - ai.last_update > ai.update_interval {
-                        ai.last_update += ai.update_interval;
-                        let seed = frame * 2351352729 + id * 423476581;
-
-                        let target = self.common.iter()
-                            .filter(|(id, com)| com.team != aic.team)
-                            .map(|x| x.1.rect.centroid())
-                            .filter(|&x| aic.rect.centroid().dist(x) < 5.0)
-                            .min_by_key(|&x| OrderedFloat(aic.rect.centroid().dist(x)));
-
-                        if let Some(pos) = target {
-                            ai.target_location = pos;
-                        } else {
-                            ai.target_location = aic.rect.centroid() + Vec2::new(krand(seed) - 0.5, krand(seed + 1) - 0.5).normalize() * 2.0;
-                        }
-                    }
-                    
-                },
-                AIKind::Rush => {
-                    let target = self.common.iter()
-                        .filter(|(id, com)| com.team != aic.team)
-                        .filter(|(id, _)| !self.projectile.contains_key(id))
-                        .map(|x| x.1.rect.centroid())
-                        .filter(|&x| aic.rect.centroid().dist(x) < 10.0)
-                        .min_by_key(|&x| OrderedFloat(aic.rect.centroid().dist(x)));
-                    
-                    if let Some(pos) = target {
-                        ai.target_location = pos;
-                    }
-                },
+            let target = self.entity_ids.iter()
+                .filter(|id| self.team.contains_key(id) && self.team.get(id).unwrap().team != my_team)
+                .filter(|id| !self.projectile.contains_key(id))
+                .filter(|id| self.physics.contains_key(id))
+                .map(|id| self.physics.get(id).unwrap().pos())
+                .filter(|&pos| my_pos.dist(pos) < ai.acquisition_range)
+                .min_by_key(|&pos| OrderedFloat(my_pos.dist(pos)));
+            
+            if let Some(pos) = target {
+                ai.dir = (pos - my_pos).normalize();
+                let dist = pos.dist(my_pos);
+                if dist < ai.flee_range {
+                    ai.dir = -ai.dir;
+                } 
+                let speed = ai.speed.min(dist/dt as f32); // potential bug butshould be fine
+                let mut_phys = self.physics.get_mut(id).unwrap();
+                mut_phys.velocity = speed * ai.dir;
+            } else {
+                let seed = frame * 123123 + id * 17236;
+                ai.dir = (ai.dir +  dt * 0.02 * Vec2::new(kuniform(seed, -1.0, 1.0), kuniform(seed+13131313, -1.0, 1.0)).normalize()).normalize();
+                if !level_rect.contains(my_pos + Vec2::new(ai.dir.x, 0.0).normalize() * 1.0) {
+                    ai.dir.x = -ai.dir.x;
+                }
+                if !level_rect.contains(my_pos + Vec2::new(0.0, ai.dir.y).normalize() * 1.0) {
+                    ai.dir.y = -ai.dir.y;
+                }
+                let mut_phys = self.physics.get_mut(id).unwrap();
+                mut_phys.velocity = 0.25 * ai.speed * ai.dir;
             }
-
-            let dist = ai.target_location.dist(aic.rect.centroid());
-            let speed = aic.speed.min(dist/dt as f32);
-            let aic = self.common.get_mut(id).unwrap();
-            aic.velocity = speed * (ai.target_location - aic.rect.centroid()).normalize();
         }            
     }
 
     pub fn update_casting_ai(&mut self, t: f32, commands: &mut Vec<Command>) {
-        for (id, ai_caster) in self.ai_caster.iter() {
-            let (self_pos, self_team) = {
-                let self_com = self.common.get(id).unwrap();
-                (self_com.rect.centroid(), self_com.team)
-            };
-            let target = self.common.iter()
-                .filter(|(id, c)| c.team != self_team && (c.rect.centroid() - self_pos).magnitude() < ai_caster.acquisition_range)
-                .fold((INFINITY, None), |acc, e| {
-                    let d = (self_pos - e.1.rect.centroid()).magnitude();
-                    if d < acc.0 {
-                        (d, Some(e.1.rect.centroid()))
-                    } else {
-                        acc
-                    }
-                }).1;
+        for (id, aic) in self.ai_caster.iter() {
+            let my_pos = self.physics.get(id).unwrap().pos();
+            let my_team = self.team.get(id).unwrap().team;
+
+            let target = self.entity_ids.iter()
+                .filter(|id| self.team.contains_key(id) && self.team.get(id).unwrap().team != my_team)
+                .filter(|id| !self.projectile.contains_key(id))
+                .filter(|id| self.physics.contains_key(id))
+                .map(|id| self.physics.get(id).unwrap().pos())
+                .filter(|&pos| my_pos.dist(pos) < aic.acquisition_range)
+                .min_by_key(|&pos| OrderedFloat(my_pos.dist(pos)));
+            
             if let Some(pos) = target {
-                commands.push(Command::Cast(*id, pos, ai_caster.spell, false));
+                commands.push(Command::Cast(*id, pos, aic.spell, false));
             }
         }
     }

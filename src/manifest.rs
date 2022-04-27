@@ -36,3 +36,6 @@ pub const ATLAS_H: i32 = 16;
 pub const TEAM_PLAYER: u32 = 0;
 pub const TEAM_ENEMIES: u32 = 1;
 pub const TEAM_NEUTRAL: u32 = 2;
+
+pub const INVUL_TIME: f32 = 0.1;
+pub const INVUL_DAMAGE_THRESHOLD: f32 = 10.0;

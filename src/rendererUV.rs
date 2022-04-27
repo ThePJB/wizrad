@@ -110,13 +110,12 @@ pub struct RendererUV {
 }
 
 impl RendererUV {
-    pub fn new(gl: &glow::Context, shader: NativeProgram, atlas: &str) -> RendererUV {
+    pub fn new(gl: &glow::Context, shader: NativeProgram, atlas: ImageBufferA) -> RendererUV {
         
         unsafe {
-            let image = ImageBufferA::new_from_file(atlas); // needs rgba
             let texture = gl.create_texture().unwrap();
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGBA as i32, image.w as i32, image.h as i32, 0, RGBA, glow::UNSIGNED_BYTE, Some(&image.bytes_transpose()));
+            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGBA as i32, atlas.w as i32, atlas.h as i32, 0, RGBA, glow::UNSIGNED_BYTE, Some(&atlas.bytes_transpose()));
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);

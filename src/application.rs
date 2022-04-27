@@ -3,7 +3,7 @@ use crate::kgui::EventAggregator;
 use crate::kgui::FrameInputState;
 use crate::renderer::*;
 use crate::rendererUV::*;
-use crate::kmath::*;
+use crate::kimg::*;
 use crate::wave_game::*;
 use glutin::event::{Event, WindowEvent};
 
@@ -36,6 +36,15 @@ pub struct Application {
     scene_stack: Vec<Box<dyn Scene>>,
 }
 
+pub fn load_file(paths: &[&str]) -> String {
+    for path in paths {
+        if let Ok(s) = std::fs::read_to_string(path) {
+            return s
+        }
+    }
+    panic!("couldn't find any of {:?}", paths)
+}
+
 impl Application {
     pub fn new(event_loop: &glutin::event_loop::EventLoop<()>) -> Application {
         let default_xres = 1600.0;
@@ -43,11 +52,38 @@ impl Application {
 
         let (gl, window) = unsafe { opengl_boilerplate(default_xres, default_yres, event_loop) };
 
-        let basic_shader = make_shader(&gl, "src/basic.vert", "src/basic.frag");
-        let uv_shader = make_shader(&gl, "src/uv.vert", "src/uv.frag");
+        let bv = &[
+            "src/basic.vert",
+            "../../src/basic.vert",
+            "basic.vert",
+        ];
+        let bf = &[
+            "src/basic.frag",
+            "../../src/basic.frag",
+            "basic.frag",
+        ];
+        
+        let uvv = &[
+            "src/uv.vert",
+            "../../src/uv.vert",
+            "uv.vert",
+        ];
+        let uvf = &[
+            "src/uv.frag",
+            "../../src/uv.frag",
+            "uv.frag",
+        ];
+                
+        let basic_shader = make_shader(&gl, bv, bf);
+        let uv_shader = make_shader(&gl, uvv, uvf);
+
+        let atlas = ImageBufferA::new_from_file("src/atlas.png")
+            .or(ImageBufferA::new_from_file("../../src/atlas.png")
+            .or(ImageBufferA::new_from_file("atlas.png")))
+            .expect("couldn't load atlas from ./atlas.png");
 
         let renderer = Renderer::new(&gl, basic_shader);
-        let rendererUV = RendererUV::new(&gl, uv_shader, "src/atlas.png");
+        let rendererUV = RendererUV::new(&gl, uv_shader, atlas);
 
         let mut scene_stack: Vec<Box<dyn Scene>> = Vec::new();
         scene_stack.push(Box::new(WaveGame::new()));
@@ -65,6 +101,8 @@ impl Application {
             scene_stack,
         }
     }
+
+    
 
     pub fn handle_scene_outcome(&mut self, so: SceneOutcome) {
         match so {
@@ -122,13 +160,13 @@ impl Application {
     }
 }
 
-fn  make_shader(gl: &glow::Context, vert_path: &str, frag_path: &str) -> glow::Program {
+fn  make_shader(gl: &glow::Context, vert_paths: &[&str], frag_paths: &[&str]) -> glow::Program {
     unsafe {
         let program = gl.create_program().expect("Cannot create program");
         let shader_version = "#version 410";
         let shader_sources = [
-            (glow::VERTEX_SHADER, std::fs::read_to_string(vert_path).unwrap()),
-            (glow::FRAGMENT_SHADER, std::fs::read_to_string(frag_path).unwrap()),
+            (glow::VERTEX_SHADER, load_file(vert_paths)),
+            (glow::FRAGMENT_SHADER, load_file(frag_paths)),
             ];
         let mut shaders = Vec::with_capacity(shader_sources.len());
         for (shader_type, shader_source) in shader_sources.iter() {
@@ -158,7 +196,7 @@ fn  make_shader(gl: &glow::Context, vert_path: &str, frag_path: &str) -> glow::P
 
 unsafe fn opengl_boilerplate(xres: f32, yres: f32, event_loop: &glutin::event_loop::EventLoop<()>) -> (glow::Context, glutin::WindowedContext<glutin::PossiblyCurrent>) {
     let window_builder = glutin::window::WindowBuilder::new()
-        .with_title("tape")
+        .with_title("wizrad")
         .with_inner_size(glutin::dpi::PhysicalSize::new(xres, yres));
     let window = glutin::ContextBuilder::new()
         // .with_depth_buffer(0)

@@ -10,6 +10,8 @@ pub struct Entity {
     expiry: Option<Expiry>,
 }
 
+// there could be such a ncie builder
+
 impl Entity {
     pub fn new() -> Entity {
         

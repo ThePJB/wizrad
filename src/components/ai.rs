@@ -20,6 +20,8 @@ pub struct AICaster {
 
 impl WaveGame {
     pub fn update_movement_ai(&mut self, t: f32, dt: f32, frame: u32, level_rect: Rect){
+        let entity_accel = 4.0;
+
         for (id, ai) in self.ai.iter_mut() {
             let my_team = self.team.get(id).unwrap().team;
             let my_phys = self.physics.get(id).unwrap();
@@ -41,7 +43,9 @@ impl WaveGame {
                 } 
                 let speed = ai.speed.min(dist/dt as f32); // potential bug butshould be fine
                 let mut_phys = self.physics.get_mut(id).unwrap();
-                mut_phys.velocity = speed * ai.dir;
+                let target_velocity = speed * ai.dir;
+                mut_phys.velocity = mut_phys.velocity + entity_accel * dt * (target_velocity - mut_phys.velocity);
+                // mut_phys.velocity = target_velocity;
             } else {
                 let seed = frame * 123123 + id * 17236;
                 ai.dir = (ai.dir +  dt * 0.02 * Vec2::new(kuniform(seed, -1.0, 1.0), kuniform(seed+13131313, -1.0, 1.0)).normalize()).normalize();
@@ -52,7 +56,9 @@ impl WaveGame {
                     ai.dir.y = -ai.dir.y;
                 }
                 let mut_phys = self.physics.get_mut(id).unwrap();
-                mut_phys.velocity = 0.25 * ai.speed * ai.dir;
+                let target_velocity = 0.25 * ai.speed * ai.dir;
+                mut_phys.velocity = target_velocity;
+                mut_phys.velocity = mut_phys.velocity + entity_accel * dt * (target_velocity - mut_phys.velocity);
             }
         }            
     }

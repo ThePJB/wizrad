@@ -101,3 +101,5 @@ movement seems erratic lol. but they dont overlap.
 more die juice please
 
 water: like fire but hella mass, push around
+
+enemies acceleration

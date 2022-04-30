@@ -6,6 +6,7 @@ use crate::renderer::*;
 use crate::rendererUV::*;
 use crate::kgui::*;
 use crate::kmath::*;
+use crate::spell::*;
 use crate::collision_system::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
@@ -28,19 +29,6 @@ use std::f32::consts::PI;
 use std::time::{Instant, Duration};
 
 use glutin::event::VirtualKeyCode;
-
-#[derive(Clone, Copy)]
-pub enum Spell {
-    Missile,
-    Pulse,
-    Lifesteal,
-    SummonBloodcasters,
-    ConeFlames,
-    SummonRushers,
-    SummonSummoners,
-    Fireball,
-    Water,
-}
 
 pub struct WaveGame {
     pub last_spawn: f32,
@@ -75,8 +63,11 @@ impl WaveGame {
             last_spawn: 0.0,
             look_center: Vec2::new(0.0, 0.0),
             particle_system: ParticleSystem{particles: Vec::new()},
+            
             entity_id_counter: 0,
             entity_ids: HashSet::new(),
+
+
             player: HashMap::new(),
             team: HashMap::new(),
             caster: HashMap::new(),
@@ -130,121 +121,6 @@ impl WaveGame {
         )
     }
 
-    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool) {
-        if let Some(cc) = self.caster.get_mut(&caster_id) {
-            match spell {
-                Spell::ConeFlames => {
-                    // frame rate dependent...... needs to emit a certain amount per unit time
-                    let cost = 1.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        self.add_flame_projectile(caster_id, target, t);
-                        self.add_flame_projectile(caster_id, target, t);
-                        self.add_flame_projectile(caster_id, target, t);
-                        self.add_flame_projectile(caster_id, target, t);
-                    }
-                },
-                Spell::Water => {
-                    // frame rate dependent...... needs to emit a certain amount per unit time
-                    let cost = 0.4;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                        self.add_water_projectile(caster_id, target, t);
-                    }
-                },
-                Spell::Missile => {
-                    if repeat { return; }
-                    if cc.last_cast + 0.3 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 10.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        self.add_projectile(caster_id, target, t);
-                    }
-                },
-                Spell::Pulse => {
-                    if cc.last_cast + 0.1 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 12.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        self.add_pulse(caster_id, target, t);
-                    }
-                },
-                Spell::Lifesteal => {
-                    if cc.last_cast + 0.5 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 10.0;
-                    let mut hp = self.health.get_mut(&caster_id).unwrap();
-                    if hp.current >= cost {
-                        hp.current -= cost;
-                        self.add_blood_projectile(caster_id, target, t);
-                    }
-                },
-                Spell::Fireball => {
-                    if repeat { return; }
-                    if cc.last_cast + 0.3 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 30.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        self.add_fireball(caster_id, target, t);
-                    }
-                },
-                Spell::SummonRushers => {
-                    if repeat { return; }
-                    if cc.last_cast + 0.3 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 50.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
-                        let team = self.team.get(&caster_id).unwrap().team;
-
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
-                    }
-                },
-                Spell::SummonBloodcasters => {
-                    if repeat { return; }
-                    if cc.last_cast + 0.3 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 50.0;
-                    let mut hp = self.health.get_mut(&caster_id).unwrap();
-                    if hp.current >= cost {
-                        hp.current -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
-                        let team = self.team.get(&caster_id).unwrap().team;
-                        
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, PI));
-                    }
-                },
-                Spell::SummonSummoners => {
-                    if repeat { return; }
-                    if cc.last_cast + 0.3 > t { return ; }
-                    cc.last_cast = t;
-                    let cost = 100.0;
-                    if cc.mana >= cost {
-                        cc.mana -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
-                        let team = self.team.get(&caster_id).unwrap().team;
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
-                    }
-                },
-                _ => {},
-            }
-        }
-    }
 
     pub fn spawn(&mut self, id: u32, seed: u32) {
         let level_min = -15.0;
@@ -264,7 +140,7 @@ impl WaveGame {
             2 => self.add_caster_enemy(pos),
             3 => self.add_summoner_enemy(TEAM_ENEMIES, pos),
             4 => self.add_summoner_summoner_enemy(TEAM_ENEMIES, pos),
-            5 => self.add_pulsecaster_enemy(TEAM_ENEMIES, pos),
+            5 => self.add_pulsecaster_enemy(pos),
             6 => self.add_bloodcaster(TEAM_ENEMIES, pos),
             _ => panic!("unreachable"),
         }
@@ -578,6 +454,8 @@ impl Scene for WaveGame {
             }
         }
 
+        self.fix_velocities(inputs.dt as f32);
+
         for dead in dead_list {
             self.remove_entity(dead);
         }
@@ -601,6 +479,7 @@ impl Scene for WaveGame {
         let screen_center = self.look_center + 0.2 * look_vec;
         let cam_rect = Rect::new_centered(screen_center.x, screen_center.y, dims.x, dims.y);
         let mut buf = TriangleBuffer::new(cam_rect);
+        let mut buf_uv = TriangleBufferUV::new(inputs.screen_rect, ATLAS_W, ATLAS_H);
 
         // draw entities
         self.draw_entities(&mut buf, inputs.t as f32, inputs.frame);
@@ -626,24 +505,34 @@ impl Scene for WaveGame {
 
         buf.draw_rect(health_rect, Vec3::new(0.0, 0.0, 0.0), 10.0);
         buf.draw_rect(mana_rect, Vec3::new(0.0, 0.0, 0.0), 10.0);
-
+        
         if let Some((player_id, _)) = self.player.iter().nth(0) {
             let player_health = self.health.get(player_id).unwrap();
             let player_cast = self.caster.get(player_id).unwrap();
-
+            
             let player_health_amount = player_health.current / player_health.max;
             let player_mana_amount = player_cast.mana / player_cast.mana_max;
-
+            
             buf.draw_rect(health_rect.child(0.0, 1.0 - player_health_amount, 1.0, player_health_amount), Vec3::new(1.0, 0.0, 0.0), 11.0);
             buf.draw_rect(mana_rect.child(0.0, 1.0 - player_mana_amount, 1.0, player_mana_amount), Vec3::new(0.0, 0.0, 1.0), 11.0);
         }
-
+        buf_uv.draw_sprite(health_rect, VESSEL, 12.0);
+        buf_uv.draw_sprite(mana_rect, VESSEL, 12.0);
+        
+        let spell_rect = inputs.screen_rect.child(0.5 - hmsize/2.0, 1.0 - hmsize, hmsize, hmsize).fit_center_square();
+        let book_left_rect = spell_rect.translate(Vec2::new(-spell_rect.w/2.0, 0.0));
+        let book_right_rect = spell_rect.translate(Vec2::new(spell_rect.w/2.0, 0.0));
+        buf_uv.draw_sprite(book_left_rect, BOOK_LEFT, 11.0);
+        buf_uv.draw_sprite(book_right_rect, BOOK_RIGHT, 11.0);
+        if let Some(player) = self.player.values().nth(0) {
+            buf_uv.draw_sprite(spell_rect, spell_sprite(player.spellbook[player.spell_cursor]), 12.0);
+        }
 
         let frametime_ms = start.elapsed().as_secs_f32() * 1000.0;
         if frametime_ms > 1.0 {
             println!("whoa that frame took forever: {}ms", frametime_ms);
         }
 
-        (SceneOutcome::None, buf, None)
+        (SceneOutcome::None, buf, Some(buf_uv))
     }
 }

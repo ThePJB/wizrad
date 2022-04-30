@@ -1,4 +1,4 @@
-use crate::wave_game::*;
+use crate::spell::*;
 
 pub struct Player {
     pub spellbook: Vec<Spell>,

@@ -103,3 +103,16 @@ more die juice please
 water: like fire but hella mass, push around
 
 enemies acceleration
+
+
+# Now todos
+tinker with physics. maybe make behaviour more reliable with substeps
+and get single collisions, first guy collided with
+  sufficient to just recalculate penetration vector?
+stop spawn cumming guys into my screen
+could make homing missile
+
+
+# well
+immediate mode is god tier, combination full power declarative
+but if things need to happen at different times you dont get that

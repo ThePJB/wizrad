@@ -1,9 +1,7 @@
 use crate::kmath::*;
+use crate::spell::*;
 use crate::wave_game::*;
 use ordered_float::*;
-use std::f32::INFINITY;
-use core::f32::consts::PI;
-
 
 // AI movt -> pursue player
 pub struct AI {
@@ -11,6 +9,7 @@ pub struct AI {
     pub acquisition_range: f32,
     pub flee_range: f32,
     pub speed: f32,
+    pub accel: f32,
 }
 
 pub struct AICaster {
@@ -19,9 +18,7 @@ pub struct AICaster {
 }
 
 impl WaveGame {
-    pub fn update_movement_ai(&mut self, t: f32, dt: f32, frame: u32, level_rect: Rect){
-        let entity_accel = 4.0;
-
+    pub fn update_movement_ai(&mut self, t: f32, dt: f32, frame: u32, level_rect: Rect) {
         for (id, ai) in self.ai.iter_mut() {
             let my_team = self.team.get(id).unwrap().team;
             let my_phys = self.physics.get(id).unwrap();
@@ -44,7 +41,7 @@ impl WaveGame {
                 let speed = ai.speed.min(dist/dt as f32); // potential bug butshould be fine
                 let mut_phys = self.physics.get_mut(id).unwrap();
                 let target_velocity = speed * ai.dir;
-                mut_phys.velocity = mut_phys.velocity + entity_accel * dt * (target_velocity - mut_phys.velocity);
+                mut_phys.velocity = mut_phys.velocity + ai.accel * dt * (target_velocity - mut_phys.velocity);
                 // mut_phys.velocity = target_velocity;
             } else {
                 let seed = frame * 123123 + id * 17236;
@@ -58,7 +55,7 @@ impl WaveGame {
                 let mut_phys = self.physics.get_mut(id).unwrap();
                 let target_velocity = 0.25 * ai.speed * ai.dir;
                 mut_phys.velocity = target_velocity;
-                mut_phys.velocity = mut_phys.velocity + entity_accel * dt * (target_velocity - mut_phys.velocity);
+                mut_phys.velocity = mut_phys.velocity + ai.accel * dt * (target_velocity - mut_phys.velocity);
             }
         }            
     }

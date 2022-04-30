@@ -11,6 +11,7 @@ pub struct Physics {
     pub mass: f32,
     pub velocity: Vec2,
     pub rect: Rect,
+    pub old_pos: Vec2,
 }
 
 impl Physics {
@@ -50,6 +51,7 @@ fn collide_rects(a: Rect, b: Rect) -> Option<Vec2> {
 impl WaveGame {
     pub fn move_entities(&mut self, dt: f32) {
         for val in self.physics.values_mut() {
+            val.old_pos = val.rect.centroid();
             val.rect = val.rect.translate(val.velocity * dt);
         }
     }
@@ -68,10 +70,13 @@ impl WaveGame {
             let sw = sphys.mass / (sphys.mass + omass);
             // let ow = ophys.mass / denom;
             // what way is penetration
-            let sphys_old = sphys.rect.translate(sphys.velocity * dt).centroid();
             sphys.rect = sphys.rect.translate((1.0 - sw) * col.penetration);
-            let sphys_new = sphys.rect.centroid();
-            sphys.velocity = (sphys_new - sphys_old) / dt;
+        }
+    }
+
+    pub fn fix_velocities(&mut self, dt: f32) {
+        for val in self.physics.values_mut() {
+            val.velocity = (val.pos() - val.old_pos) / dt;
         }
     }
 

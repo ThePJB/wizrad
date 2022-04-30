@@ -6,10 +6,11 @@ mod application;
 mod manifest;
 mod wave_game;
 mod kgui;
-mod collision_system;
 mod components;
 mod particles;
 mod entity_definitions;
+mod entity;
+mod spell;
 
 use application::*;
 use glutin::event::{Event, WindowEvent};

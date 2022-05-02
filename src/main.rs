@@ -4,13 +4,16 @@ mod kimg;
 mod kmath;
 mod application;
 mod manifest;
-mod wave_game;
 mod kgui;
 mod components;
 mod particles;
 mod entity_definitions;
 mod entity;
 mod spell;
+
+mod wave_game;
+mod tutorial;
+mod victory;
 
 use application::*;
 use glutin::event::{Event, WindowEvent};

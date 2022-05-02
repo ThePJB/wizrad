@@ -147,9 +147,9 @@ impl WaveGame {
                         cc.mana -= cost;
                         let pos = self.physics.get(&caster_id).unwrap().pos();
                         let team = self.team.get(&caster_id).unwrap().team;
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
+                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 0.0));
+                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0));
+                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0));
                     }
                 },
                 _ => {},

@@ -5,11 +5,14 @@ use crate::renderer::*;
 use crate::rendererUV::*;
 use crate::kimg::*;
 use crate::wave_game::*;
+use crate::tutorial::*;
+use crate::victory::*;
 use glutin::event::{Event, WindowEvent};
 
 pub enum SceneOutcome {
     Push(Box<dyn Scene>),
     Pop(SceneSignal),
+    QuitProgram,
     None,
 }
 
@@ -86,7 +89,9 @@ impl Application {
         let rendererUV = RendererUV::new(&gl, uv_shader, atlas);
 
         let mut scene_stack: Vec<Box<dyn Scene>> = Vec::new();
+        scene_stack.push(Box::new(Victory{}));
         scene_stack.push(Box::new(WaveGame::new()));
+        scene_stack.push(Box::new(Tutorial{}));
 
         Application {
             gl,
@@ -120,6 +125,10 @@ impl Application {
                     self.handle_scene_outcome(so);
                 }
             },
+            SceneOutcome::QuitProgram => {
+                self.destroy();
+                std::process::exit(0);
+            }
             SceneOutcome::None => {},
         }
     }

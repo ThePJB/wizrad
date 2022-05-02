@@ -116,3 +116,51 @@ could make homing missile
 # well
 immediate mode is god tier, combination full power declarative
 but if things need to happen at different times you dont get that
+
+# nemesis
+
+yeah you could so have a nemesis who portals into your instances, fucking asshole
+goal of tracking them down (+ their boss etc)
+
+/ your increased prolificness has attracted attention of the time police, chance that they detect you and portal into your instances
+craft another thing to make them fuck off
+maybe you want their spells
+oh yeah when your instance is collapsing make these holes that are parallax looking
+but if you sruvive long enuogh you can portal and enter the singularity
+
+spells to change instance
+spells where the price is decaying the instance. the capitalist school of magic.
+
+
+spells
+
+ensnaring roots, guys within aoe of you get rooted
+
+put a ward in the ground, line between you and ward is damaging
+piercing projectile
+4ways projectiles
+homing projectiles
+controllable projectile
+direct aoe damage, op
+
+black hole, lmao, test the physics engine
+
+guys who reflect projectiles
+guys who shoot stuff when they take damage (dont fire them bro)
+
+
+next release
+clear waves + goal
+clear hotkeys instruction
+choosing spells
+spell gui -- done
+
+right click could be an item you have to charge - persistent mana, super strong
+
+
+on death - soz you died lad, r to reset
+betwixt waves, spell options menu
+maybe want that one to be transparent
+or at least not immediately kill player
+
+fix buggy splat

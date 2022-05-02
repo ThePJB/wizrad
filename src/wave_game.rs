@@ -122,8 +122,8 @@ impl WaveGame {
 
 
     pub fn spawn(&mut self, id: u32, seed: u32) {
-        let level_min = -15.0;
-        let level_max = 15.0;
+        let level_min = -14.5;
+        let level_max = 14.5;
 
         let pos = match khash(seed * 123415) % 4 {
             0 => Vec2::new(level_min, kuniform(seed * 138971377, level_min, level_max)),
@@ -252,7 +252,8 @@ impl Scene for WaveGame {
                     }
                 },
                 _ => {
-                    println!("all done!")
+                    println!("winner!");
+                    return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
                 },
             }
         }
@@ -261,7 +262,7 @@ impl Scene for WaveGame {
 
         // Inputs
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Escape, true) => {true}, _ => {false}}) {
-            return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
+            return (SceneOutcome::QuitProgram, TriangleBuffer::new(inputs.screen_rect), None);
         }
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
             reset = true;
@@ -472,7 +473,7 @@ impl Scene for WaveGame {
         }
 
         // Camera
-        let scale = 15.0;
+        let scale = 20.0;
         let dims = scale * inputs.screen_rect.br();
         let look_vec = scale * inputs.mouse_pos - dims/2.0;
         let screen_center = self.look_center + 0.2 * look_vec;

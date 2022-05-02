@@ -163,4 +163,10 @@ betwixt waves, spell options menu
 maybe want that one to be transparent
 or at least not immediately kill player
 
-fix buggy splat
+kill counts a bit of a reward
+summary of spells you had
+what wave you got to (plz finish)
+
+todos:
+  fix buggy splat
+  death screen imminent

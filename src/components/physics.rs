@@ -10,14 +10,7 @@ pub struct CollisionEvent {
 pub struct Physics {
     pub mass: f32,
     pub velocity: Vec2,
-    pub rect: Rect,
     pub old_pos: Vec2,
-}
-
-impl Physics {
-    pub fn pos(&self) -> Vec2 {
-        self.rect.centroid()
-    }
 }
 
 // 5 cases: both a in b, both b in a, a left in b, b left in a, no overlap
@@ -50,33 +43,37 @@ fn collide_rects(a: Rect, b: Rect) -> Option<Vec2> {
 
 impl WaveGame {
     pub fn move_entities(&mut self, dt: f32) {
-        for val in self.physics.values_mut() {
-            val.old_pos = val.rect.centroid();
-            val.rect = val.rect.translate(val.velocity * dt);
+        for (id, phys) in self.physics.iter_mut() {
+            let rect = self.rect.get_mut(id).unwrap();
+            phys.old_pos = rect.centroid();
+            *rect = rect.translate(phys.velocity * dt);
         }
     }
 
     pub fn collisions(&self) -> Vec<CollisionEvent> {
         self.physics.iter().cartesian_product(self.physics.iter())
             .filter(|((sid, sphys), (oid, ophys))| sid != oid)
-            .filter_map(|((&sid, sphys), (&oid, ophys))| collide_rects(sphys.rect, ophys.rect).map(|pen| CollisionEvent {subject: sid, object: oid, penetration: pen}))
+            .filter_map(|((&sid, sphys), (&oid, ophys))| collide_rects(*self.rect.get(&sid).unwrap(), *self.rect.get(&oid).unwrap()).map(|pen| CollisionEvent {subject: sid, object: oid, penetration: pen}))
             .collect()
     }
 
     pub fn fix_overlaps(&mut self, cols: &[CollisionEvent], dt: f32) {
         for col in cols {
             let omass = self.physics.get(&col.object).unwrap().mass;
-            let sphys = self.physics.get_mut(&col.subject).unwrap();
+            let sphys = self.physics.get(&col.subject).unwrap();
             let sw = sphys.mass / (sphys.mass + omass);
             // let ow = ophys.mass / denom;
             // what way is penetration
-            sphys.rect = sphys.rect.translate((1.0 - sw) * col.penetration);
+            let mut rect = self.rect.get_mut(&col.subject).unwrap();
+            *rect = rect.translate((1.0 - sw) * col.penetration);
         }
     }
 
     pub fn fix_velocities(&mut self, dt: f32) {
-        for val in self.physics.values_mut() {
-            val.velocity = (val.pos() - val.old_pos) / dt;
+        for (id, val) in self.physics.iter_mut() {
+            let rect = self.rect.get_mut(&id).unwrap();
+
+            val.velocity = (rect.centroid() - val.old_pos) / dt;
         }
     }
 

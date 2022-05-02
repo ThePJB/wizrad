@@ -53,6 +53,7 @@ pub struct WaveGame {
     pub emitter: HashMap<u32, Emitter>,
     pub ai_caster: HashMap<u32, AICaster>,
     pub physics: HashMap<u32, Physics>,
+    pub rect: HashMap<u32, Rect>,
 }
 
 impl WaveGame {
@@ -79,6 +80,7 @@ impl WaveGame {
             emitter: HashMap::new(),
             ai_caster: HashMap::new(),
             physics: HashMap::new(),
+            rect: HashMap::new(),
         };
 
         wg.add_player(Vec2::new(0.0, 0.0));
@@ -102,6 +104,7 @@ impl WaveGame {
         self.emitter.remove(&entity_id);
         self.ai_caster.remove(&entity_id);
         self.physics.remove(&entity_id);
+        self.rect.remove(&entity_id);
     }
 
     // p is in world space, how to make it into screen space
@@ -319,7 +322,7 @@ impl Scene for WaveGame {
             if ec.last + ec.interval < inputs.t as f32 {
                 iter_count += 1;
                 ec.last += ec.interval;
-                let pos = self.physics.get(&id).unwrap().pos();
+                let pos = self.rect.get(&id).unwrap().centroid();
                 let seed = inputs.frame * 12315 + *id * 1412337 + iter_count;
                 self.particle_system.add_particle(Particle {
                     expiry: inputs.t as f32 + ec.lifespan,
@@ -373,11 +376,11 @@ impl Scene for WaveGame {
         // handle projectile impacts
         for ce in collision_events.iter() {
             if let Some(proj) = self.projectile.get(&ce.subject) {
-                let impact_location = self.physics.get(&ce.object).unwrap().pos();
+                let impact_location = self.rect.get(&ce.object).unwrap().centroid();
                 let proj_team = self.team.get(&ce.subject).unwrap().team;
                 let target_team = self.team.get(&ce.object).unwrap().team;
                 if proj.aoe > 0.0 {
-                    for (id, _) in self.physics.iter().filter(|(id, com)| com.rect.centroid().dist(impact_location) <= proj.aoe && proj_team != target_team) {
+                    for (id, _) in self.physics.iter().filter(|(id, com)| self.rect.get(id).unwrap().centroid().dist(impact_location) <= proj.aoe && proj_team != target_team) {
                         if let Some(health) = self.health.get_mut(&id) {
                             health.damage(proj.damage, inputs.t as f32);
                             if let Some(caster_hp) = self.health.get_mut(&proj.source) {
@@ -395,7 +398,7 @@ impl Scene for WaveGame {
                         }
                     }
                 }
-                let pos = self.physics.get(&ce.subject).unwrap().pos();
+                let pos = self.rect.get(&ce.subject).unwrap().centroid();
                 if proj.splat_duration > 0.0 {
                     self.add_firesplat(pos, inputs.t as f32);
                 }
@@ -426,28 +429,28 @@ impl Scene for WaveGame {
         // apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
 
         // constrain to arena
-        for (id, com) in self.physics.iter_mut() {
+        for (id, rect) in self.rect.iter_mut() {
 
-            if com.rect.top() < level_rect.top() {
-                com.rect.y += (level_rect.top() - com.rect.top());
+            if rect.top() < level_rect.top() {
+                rect.y += level_rect.top() - rect.top();
                 if self.projectile.contains_key(id) {
                     dead_list.push(*id);
                 }
             }
-            if com.rect.bot() > level_rect.bot() {
-                com.rect.y += (level_rect.bot() - com.rect.bot());
+            if rect.bot() > level_rect.bot() {
+                rect.y += level_rect.bot() - rect.bot();
                 if self.projectile.contains_key(id) {
                     dead_list.push(*id);
                 }
             }
-            if com.rect.left() < level_rect.left() {
-                com.rect.x += (level_rect.left() - com.rect.left());
+            if rect.left() < level_rect.left() {
+                rect.x += level_rect.left() - rect.left();
                 if self.projectile.contains_key(id) {
                     dead_list.push(*id);
                 }
             }
-            if com.rect.right() > level_rect.right() {
-                com.rect.x += (level_rect.right() - com.rect.right());
+            if rect.right() > level_rect.right() {
+                rect.x += level_rect.right() - rect.right();
                 if self.projectile.contains_key(id) {
                     dead_list.push(*id);
                 }
@@ -461,7 +464,7 @@ impl Scene for WaveGame {
         }
 
         if let Some((id, _)) = self.player.iter().nth(0) {
-            self.look_center = self.physics.get(id).unwrap().pos();
+            self.look_center = self.rect.get(id).unwrap().centroid();
         }
 
         // regen

@@ -22,7 +22,8 @@ impl WaveGame {
             .with_player(10.0, vec![Spell::Missile, Spell::Pulse, Spell::ConeFlames, Spell::Water, Spell::Fireball, Spell::SummonRushers, Spell::Lifesteal, Spell::SummonBloodcasters])
             .with_caster(100.0, 15.0)
             .with_team(TEAM_PLAYER)
-            .with_physics(1.0, Rect::new_centered(pos.x, pos.y, 1.0, 1.0), Vec2::new(0.0, 0.0))
+            .with_physics(1.0, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
             .with_health(100.0, 1.0)
             .with_render_solid(Vec3::new(1.0, 0.0, 1.0));
         self.add_entity(player);
@@ -31,7 +32,9 @@ impl WaveGame {
     pub fn add_fbm_enemy(&mut self, pos: Vec2) {
         let goon = Entity::new()
             .with_team(TEAM_ENEMIES)
-            .with_physics(1.0, Rect::new_centered(pos.x, pos.y, 1.0, 1.0), Vec2::new(0.0, 0.0))
+            .with_physics(1.0, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
+
             .with_melee_damage(20.0)
             .with_health(50.0, 1.0)
             .with_ai(10.0, 0.0, 4.0, 6.0)
@@ -42,7 +45,8 @@ impl WaveGame {
     pub fn add_zerg_enemy(&mut self, team: u32, pos: Vec2) {
         let zerg = Entity::new()
             .with_team(team)
-            .with_physics(0.25, Rect::new_centered(pos.x, pos.y, 0.5, 0.5), Vec2::new(0.0, 0.0))
+            .with_physics(0.25, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 0.5, 0.5))
             .with_melee_damage(20.0)
             .with_health(20.0, 1.0)
             .with_ai(10.0, 0.0, 7.0, 6.0)
@@ -53,7 +57,8 @@ impl WaveGame {
     pub fn add_caster_enemy(&mut self, pos: Vec2) {
         let caster = Entity::new()
             .with_team(TEAM_ENEMIES)
-            .with_physics(0.7, Rect::new_centered(pos.x, pos.y, 0.9, 0.9), Vec2::new(0.0, 0.0))
+            .with_physics(0.7, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
             .with_health(20.0, 1.0)
             .with_ai(10.0, 5.0, 3.0, 6.0)
             .with_render_solid(Vec3::new(0.0, 0.8, 0.8))
@@ -65,7 +70,9 @@ impl WaveGame {
     pub fn add_pulsecaster_enemy(&mut self, pos: Vec2) {
         let caster = Entity::new()
             .with_team(TEAM_ENEMIES)
-            .with_physics(0.7, Rect::new_centered(pos.x, pos.y, 0.9, 0.9), Vec2::new(0.0, 0.0))
+            .with_physics(0.7, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
+
             .with_health(30.0, 1.0)
             .with_ai(10.0, 2.0, 5.0, 6.0)
             .with_render_solid(Vec3::new(0.8, 0.6, 0.8))
@@ -77,7 +84,8 @@ impl WaveGame {
     pub fn add_bloodcaster(&mut self, team: u32, pos: Vec2) {
         let caster = Entity::new()
             .with_team(team)
-            .with_physics(0.7, Rect::new_centered(pos.x, pos.y, 0.9, 0.9), Vec2::new(0.0, 0.0))
+            .with_physics(0.7, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
             .with_health(40.0, 1.0)
             .with_ai(10.0, 5.0, 5.0, 6.0)
             .with_render_solid(Vec3::new(0.4, 0.3, 0.3))
@@ -89,7 +97,8 @@ impl WaveGame {
     pub fn add_summoner_enemy(&mut self, team: u32, pos: Vec2) {
         let caster = Entity::new()
             .with_team(team)
-            .with_physics(2.0, Rect::new_centered(pos.x, pos.y, 1.2, 1.2), Vec2::new(0.0, 0.0))
+            .with_physics(2.0, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 1.2, 1.2))
             .with_health(100.0, 1.0)
             .with_ai(10.0, 0.0, 2.0, 6.0)
             .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
@@ -101,7 +110,8 @@ impl WaveGame {
     pub fn add_summoner_summoner_enemy(&mut self, team: u32, pos: Vec2) {
         let caster = Entity::new()
             .with_team(team)
-            .with_physics(4.0, Rect::new_centered(pos.x, pos.y, 1.8, 1.8), Vec2::new(0.0, 0.0))
+            .with_physics(4.0, Vec2::new(0.0, 0.0))
+            .with_rect(Rect::new_centered(pos.x, pos.y, 1.8, 1.8))
             .with_health(200.0, 1.0)
             .with_ai(10.0, 0.0, 1.6, 6.0)
             .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
@@ -120,7 +130,7 @@ impl WaveGame {
         let (team, pos, v) = {
             let caster_comp = self.team.get(&caster).unwrap();
             let caster_phys = self.physics.get(&caster).unwrap();
-            let caster_pos = caster_phys.pos();
+            let caster_pos = self.rect.get(&caster).unwrap().centroid();
             let v = (target - caster_pos).normalize() * 10.0;
             let team = caster_comp.team;
             (team, caster_pos, v)
@@ -135,9 +145,9 @@ impl WaveGame {
         self.physics.insert(id, Physics {
             velocity: v,
             mass: 0.0,
-            rect: Rect::new_centered(pos.x, pos.y, 0.2, 0.2),
             old_pos: Vec2::new(0.0, 0.0),
         });
+        self.rect.insert(id, Rect::new_centered(pos.x, pos.y, 0.2, 0.2));
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 2.0,
@@ -172,7 +182,7 @@ impl WaveGame {
         let (team, pos, v) = {
             let caster_comp = self.team.get(&caster).unwrap();
             let caster_phys = self.physics.get(&caster).unwrap();
-            let caster_pos = caster_phys.pos();
+            let caster_pos = self.rect.get(&caster).unwrap().centroid();
             let v = (target - caster_pos).normalize() * 6.0;
             let team = caster_comp.team;
             (team, caster_pos, v)
@@ -187,9 +197,9 @@ impl WaveGame {
         self.physics.insert(id, Physics {
             velocity: v,
             mass: 20.0,
-            rect: Rect::new_centered(pos.x, pos.y, 0.2, 0.2),
             old_pos: Vec2::new(0.0, 0.0),
         });
+        self.rect.insert(id, Rect::new_centered(pos.x, pos.y, 0.2, 0.2));
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 0.0,
@@ -220,7 +230,7 @@ impl WaveGame {
         let (team, pos, v) = {
             let caster_comp = self.team.get(&caster).unwrap();
             let caster_phys = self.physics.get(&caster).unwrap();
-            let caster_pos = caster_phys.pos();
+            let caster_pos = self.rect.get(&caster).unwrap().centroid();
             let v = (target - caster_pos).normalize() * 10.0;
             let team = caster_comp.team;
             (team, caster_pos, v)
@@ -231,9 +241,9 @@ impl WaveGame {
         self.physics.insert(id, Physics {
             velocity: v,
             mass: 1.0,
-            rect: Rect::new_centered(pos.x, pos.y, 0.5, 0.5),
             old_pos: Vec2::new(0.0, 0.0),
         });
+        self.rect.insert(id, Rect::new_centered(pos.x, pos.y, 0.5, 0.5));
         self.projectile.insert(id, Projectile {
             source: caster,
             damage: 50.0,
@@ -256,16 +266,7 @@ impl WaveGame {
         let id = self.entity_id_counter;
         self.entity_id_counter += 1;
         self.entity_ids.insert(id);
-
-        self.team.insert(id, Team {
-            team: TEAM_NEUTRAL, 
-        });
-        self.physics.insert(id, Physics {
-            velocity: Vec2::new(0.0, 0.0),
-            mass: 0.0,
-            rect: Rect::new_centered(target.x, target.y, 0.5, 0.5),
-            old_pos: Vec2::new(0.0, 0.0),
-        });
+        self.rect.insert(id, Rect::new_centered(target.x, target.y, 0.5, 0.5));
         self.render.insert(id, Render::FireSplat(6.0));
         self.expiry.insert(id, Expiry {expiry: t + 0.4});
     }

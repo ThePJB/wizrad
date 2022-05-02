@@ -22,13 +22,13 @@ impl WaveGame {
         for (id, ai) in self.ai.iter_mut() {
             let my_team = self.team.get(id).unwrap().team;
             let my_phys = self.physics.get(id).unwrap();
-            let my_pos = my_phys.pos();
+            let my_pos = self.rect.get(id).unwrap().centroid();
 
             let target = self.entity_ids.iter()
                 .filter(|id| self.team.contains_key(id) && self.team.get(id).unwrap().team != my_team)
                 .filter(|id| !self.projectile.contains_key(id))
                 .filter(|id| self.physics.contains_key(id))
-                .map(|id| self.physics.get(id).unwrap().pos())
+                .map(|id| self.rect.get(id).unwrap().centroid())
                 .filter(|&pos| my_pos.dist(pos) < ai.acquisition_range)
                 .min_by_key(|&pos| OrderedFloat(my_pos.dist(pos)));
             
@@ -62,14 +62,14 @@ impl WaveGame {
 
     pub fn update_casting_ai(&mut self, t: f32, commands: &mut Vec<Command>) {
         for (id, aic) in self.ai_caster.iter() {
-            let my_pos = self.physics.get(id).unwrap().pos();
+            let my_pos = self.rect.get(id).unwrap().centroid();
             let my_team = self.team.get(id).unwrap().team;
 
             let target = self.entity_ids.iter()
                 .filter(|id| self.team.contains_key(id) && self.team.get(id).unwrap().team != my_team)
                 .filter(|id| !self.projectile.contains_key(id))
                 .filter(|id| self.physics.contains_key(id))
-                .map(|id| self.physics.get(id).unwrap().pos())
+                .map(|id| self.rect.get(id).unwrap().centroid())
                 .filter(|&pos| my_pos.dist(pos) < aic.acquisition_range)
                 .min_by_key(|&pos| OrderedFloat(my_pos.dist(pos)));
             

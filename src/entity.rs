@@ -28,6 +28,7 @@ pub struct Entity {
     expiry: Option<Expiry>,
     physics: Option<Physics>,
     player: Option<Player>,
+    rect: Option<Rect>,
 }
 
 // there could be such a ncie builder
@@ -47,6 +48,7 @@ impl Entity {
             expiry: None,
             physics: None,
             player: None,
+            rect: None,
         }
     }
 
@@ -131,13 +133,17 @@ impl Entity {
         self
     }
 
-    pub fn with_physics(mut self, mass: f32, rect: Rect, velocity: Vec2) -> Entity {
+    pub fn with_physics(mut self, mass: f32, velocity: Vec2) -> Entity {
         self.physics = Some(Physics {
             mass,
-            rect,
-            old_pos: rect.centroid(),
+            old_pos: Vec2::new(0.0, 0.0), // ruh roh shraggy
             velocity,
         });
+        self
+    }
+    
+    pub fn with_rect(mut self, rect: Rect) -> Entity {
+        self.rect = Some(rect);
         self
     }
 
@@ -210,6 +216,9 @@ impl WaveGame {
         }
         if let Some(health) = entity.health {
             self.health.insert(id, health);
+        }
+        if let Some(rect) = entity.rect {
+            self.rect.insert(id, rect);
         }
     } 
 }

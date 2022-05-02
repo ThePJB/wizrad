@@ -22,7 +22,7 @@ pub enum Spell {
 impl WaveGame {
     pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool) {
         let caster_team = self.team.get(&caster_id).unwrap().team;
-        let caster_pos = self.physics.get(&caster_id).unwrap().pos();
+        let caster_pos = self.rect.get(&caster_id).unwrap().centroid();
         if let Some(cc) = self.caster.get_mut(&caster_id) {
             match spell {
                 Spell::ConeFlames => {
@@ -59,7 +59,8 @@ impl WaveGame {
                         cc.mana -= cost;
                         let missile = Entity::new()
                             .with_team(caster_team)
-                            .with_physics(10.0, Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4), (target - caster_pos).normalize() * 15.0)
+                            .with_physics(10.0, (target - caster_pos).normalize() * 15.0)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4))
                             .with_projectile(caster_id, 34.0)
                             .with_emitter(0.05, Vec3::new(0.8, 0.0, 0.8), 2.0, 0.7, 0.1)
                             .with_render_solid(Vec3::new(0.8, 0.0, 0.8));
@@ -74,7 +75,8 @@ impl WaveGame {
                         cc.mana -= cost;
                         let missile = Entity::new()
                             .with_team(caster_team)
-                            .with_physics(4.0, Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4), (target - caster_pos).normalize() * 25.0)
+                            .with_physics(4.0, (target - caster_pos).normalize() * 25.0)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4))
                             .with_projectile(caster_id, 34.0)
                             .with_emitter(0.05, Vec3::new(0.0, 0.8, 0.0), 3.0, 0.3, 0.1)
                             .with_render_solid(Vec3::new(0.0, 0.8, 0.0))
@@ -91,7 +93,8 @@ impl WaveGame {
                         hp.current -= cost;
                         let missile = Entity::new()
                             .with_team(caster_team)
-                            .with_physics(4.0, Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4), (target - caster_pos).normalize() * 10.0)
+                            .with_physics(4.0, (target - caster_pos).normalize() * 10.0)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.4, 0.4))
                             .with_projectile_ex(caster_id, 20.0, 0.0, 0.0, 0.7)
                             .with_emitter(0.05, Vec3::new(0.8, 0.0, 0.0), 2.0, 0.7, 0.1)
                             .with_render_solid(Vec3::new(0.8, 0.0, 0.0));
@@ -115,7 +118,7 @@ impl WaveGame {
                     let cost = 50.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
     
                         self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
@@ -131,7 +134,7 @@ impl WaveGame {
                     let mut hp = self.health.get_mut(&caster_id).unwrap();
                     if hp.current >= cost {
                         hp.current -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
                         
                         self.add_bloodcaster(team, pos.offset_r_theta(1.0, 0.0));
@@ -145,7 +148,7 @@ impl WaveGame {
                     let cost = 100.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
-                        let pos = self.physics.get(&caster_id).unwrap().pos();
+                        let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
                         self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 0.0));
                         self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0));

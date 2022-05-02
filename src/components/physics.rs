@@ -7,6 +7,7 @@ pub struct CollisionEvent {
     pub penetration: Vec2,
 }
 
+#[derive(Clone)]
 pub struct Physics {
     pub mass: f32,
     pub velocity: Vec2,

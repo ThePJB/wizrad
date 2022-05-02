@@ -1,6 +1,8 @@
 use crate::components::physics::CollisionEvent;
 use crate::wave_game::*;
 use crate::manifest::*;
+
+#[derive(Clone)]
 pub struct MeleeDamage {
     pub amount: f32,
 }

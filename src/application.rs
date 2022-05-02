@@ -7,6 +7,7 @@ use crate::kimg::*;
 use crate::wave_game::*;
 use crate::tutorial::*;
 use crate::victory::*;
+use crate::spell::*;
 use glutin::event::{Event, WindowEvent};
 
 pub enum SceneOutcome {
@@ -17,6 +18,7 @@ pub enum SceneOutcome {
 }
 
 pub enum SceneSignal {
+    SpellChoice(Spell),
     JustPop,
 }
 

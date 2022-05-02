@@ -28,12 +28,9 @@ impl Scene for Tutorial {
         buf_uv.draw_sprite(info_pane.grid_child(1, 2, 2, 3), TUT_CAST, 2.0);
 
         if inputs.events.iter().any(|e| match e {
-            KEvent::Keyboard(_, true) => true,
-            KEvent::Keyboard(_, false) => false,
-            KEvent::MouseLeft(_) => true,
-            KEvent::MouseMiddle(_) => true,
-            KEvent::MouseRight(_) => true,
-            KEvent::MouseMotion(_) => false,
+            KEvent::Keyboard(_, false) => true,
+            KEvent::MouseLeft(false) => true,
+            _ => false,
         }) {
             return (SceneOutcome::Pop(SceneSignal::JustPop), buf, Some(buf_uv));
         }

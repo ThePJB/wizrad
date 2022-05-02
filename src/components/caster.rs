@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Caster {
     pub mana: f32,
     pub mana_max: f32,

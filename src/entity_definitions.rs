@@ -19,7 +19,8 @@ use crate::components::physics::*;
 impl WaveGame {
     pub fn add_player(&mut self, pos: Vec2) {
         let player = Entity::new()
-            .with_player(10.0, vec![Spell::Missile, Spell::Pulse, Spell::ConeFlames, Spell::Water, Spell::Fireball, Spell::SummonRushers, Spell::Lifesteal, Spell::SummonBloodcasters])
+            // .with_player(10.0, vec![Spell::Missile, Spell::Pulse, Spell::ConeFlames, Spell::Water, Spell::Fireball, Spell::SummonRushers, Spell::Lifesteal, Spell::SummonBloodcasters, Spell::Homing])
+            .with_player(10.0, vec![])
             .with_caster(100.0, 15.0)
             .with_team(TEAM_PLAYER)
             .with_physics(1.0, Vec2::new(0.0, 0.0))
@@ -103,7 +104,7 @@ impl WaveGame {
             .with_ai(10.0, 0.0, 2.0, 6.0)
             .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
             .with_ai_caster(10.0, Spell::SummonRushers)
-            .with_caster(50.0, 5.0);
+            .with_caster(50.0, 4.0);
         self.add_entity(caster);
     }
 
@@ -115,8 +116,8 @@ impl WaveGame {
             .with_health(200.0, 1.0)
             .with_ai(10.0, 0.0, 1.6, 6.0)
             .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
-            .with_ai_caster(10.0, Spell::SummonSummoners)
-            .with_caster(100.0, 5.0);
+            .with_ai_caster(12.0, Spell::SummonSummoners)
+            .with_caster(100.0, 3.0);
         self.add_entity(caster);
     }
     

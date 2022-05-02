@@ -170,3 +170,6 @@ what wave you got to (plz finish)
 todos:
   fix buggy splat
   death screen imminent
+
+
+i could afford to prototype much harder for entities

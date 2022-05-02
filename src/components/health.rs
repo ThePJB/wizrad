@@ -1,5 +1,6 @@
 use crate::manifest::*;
 
+#[derive(Clone)]
 pub struct Health {
     pub current: f32,
     pub max: f32,

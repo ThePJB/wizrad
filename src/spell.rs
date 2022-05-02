@@ -6,7 +6,7 @@ use crate::wave_game::*;
 use crate::entity_definitions::*;
 use crate::entity::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Spell {
     Missile,
     Pulse,
@@ -17,6 +17,7 @@ pub enum Spell {
     SummonSummoners,
     Fireball,
     Water,
+    Homing,
 }
 
 impl WaveGame {
@@ -67,10 +68,38 @@ impl WaveGame {
                         self.add_entity(missile);
                     }
                 },
+                Spell::Homing => {
+                    let colour = Vec3::new(0.0, 0.4, 1.0);
+                    let speed = 5.0;
+                    
+                    if repeat { return; }
+                    if cc.last_cast + 0.3 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 25.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        let m1 = Entity::new()
+                            .with_team(caster_team)
+                            .with_physics(10.0, (target - caster_pos).normalize() * speed)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.5, 0.5))
+                            .with_projectile(caster_id, 20.0)
+                            .with_emitter(0.05, colour, 2.0, 0.7, 0.1)
+                            .with_ai(999999.0, 0.0, speed, 0.8) // see if it works lmao
+                            .with_render_solid(colour);
+                        let m2 = m1.clone()
+                            .with_physics(10.0, (target - caster_pos).normalize().rotate(-1.0) * speed);
+                        let m3 = m1.clone()
+                            .with_physics(10.0, (target - caster_pos).normalize().rotate(1.0) * speed);
+
+                        self.add_entity(m1);
+                        self.add_entity(m2);
+                        self.add_entity(m3);
+                    }
+                },
                 Spell::Pulse => {
                     if cc.last_cast + 0.1 > t { return ; }
                     cc.last_cast = t;
-                    let cost = 10.0;
+                    let cost = 7.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
                         let missile = Entity::new()
@@ -155,7 +184,6 @@ impl WaveGame {
                         self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0));
                     }
                 },
-                _ => {},
             }
         }
     }
@@ -171,6 +199,8 @@ pub fn spell_sprite(spell: Spell) -> i32 {
         Spell::SummonRushers => ICON_SUMMON_ZERGS,
         Spell::Fireball => ICON_FIREBALL,
         Spell::Water => ICON_WATER,
+        
+        Spell::Homing => ICON_HOMING,
         
         Spell::SummonSummoners => 0,
     }

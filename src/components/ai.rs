@@ -3,7 +3,7 @@ use crate::spell::*;
 use crate::wave_game::*;
 use ordered_float::*;
 
-// AI movt -> pursue player
+#[derive(Clone)]
 pub struct AI {
     pub dir: Vec2,
     pub acquisition_range: f32,
@@ -12,6 +12,7 @@ pub struct AI {
     pub accel: f32,
 }
 
+#[derive(Clone)]
 pub struct AICaster {
     pub spell: Spell,
     pub acquisition_range: f32,

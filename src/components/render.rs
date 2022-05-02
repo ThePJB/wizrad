@@ -2,12 +2,15 @@ use crate::kmath::*;
 use crate::manifest::INVUL_TIME;
 use crate::renderer::TriangleBuffer;
 use crate::wave_game::*;
+
+#[derive(Clone)]
 pub enum Render {
     Colour(Vec3),
     FOfT(FOfT),
     FireSplat(f32),
 }
 
+#[derive(Clone)]
 pub struct FOfT {
     pub f: fn(f32) -> Vec3,
     pub t_start: f32,

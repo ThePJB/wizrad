@@ -1,7 +1,7 @@
 use crate::kmath::*;
 
 use std::collections::HashSet;
-use std::time::{Instant, Duration};
+use std::time::{SystemTime, Instant, Duration};
 
 use glutin::event::VirtualKeyCode;
 
@@ -35,6 +35,7 @@ pub struct FrameInputState {
     pub t: f64,
     pub dt: f64,
     pub frame: u32,
+    pub seed: u32,
 }
 
 pub struct EventAggregator {
@@ -61,6 +62,7 @@ impl EventAggregator {
                 t: 0.0,
                 dt: 0.0,
                 frame: 0,
+                seed: SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(Duration::from_nanos(34123123)).subsec_nanos(),
             }
         }
     }
@@ -141,6 +143,7 @@ impl EventAggregator {
                 self.current.frame += 1;
                 let state = self.current.clone();
                 self.current.events = Vec::new();
+                self.current.seed = khash(self.current.seed * 196513497);
                 return Some(state);
             },
             _ => {},

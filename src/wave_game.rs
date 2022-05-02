@@ -10,6 +10,8 @@ use crate::spell::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
 
+use crate::spell_menu::*;
+
 use crate::components::team::*;
 use crate::components::ai::*;
 use crate::components::health::*;
@@ -26,6 +28,7 @@ use std::collections::HashSet;
 use std::f32::INFINITY;
 use std::f32::consts::PI;
 use std::time::{Instant, Duration};
+use std::convert::TryInto;
 
 use glutin::event::VirtualKeyCode;
 
@@ -158,6 +161,14 @@ pub enum Command {
 
 impl Scene for WaveGame {
     fn handle_signal(&mut self, signal: SceneSignal) -> SceneOutcome {
+        match signal {
+            SceneSignal::SpellChoice(spell) => {
+                if let Some((_, player)) = self.player.iter_mut().nth(0) {
+                    player.spellbook.push(spell);
+                }
+            }
+            _ => {},
+        }
         SceneOutcome::None
     }
 
@@ -172,6 +183,28 @@ impl Scene for WaveGame {
 
         let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
 
+
+        // player spells
+
+        if let Some(player) = self.player.values_mut().nth(0) {
+            let mut spell_list = vec![
+                Spell::Missile,
+                Spell::Fireball,
+                Spell::ConeFlames,
+                Spell::Pulse,
+                Spell::Lifesteal,
+                Spell::SummonBloodcasters,
+                Spell::SummonRushers,
+                Spell::Homing,
+            ];
+
+            if (player.spellbook.len() as i32) < self.wave + 1 {
+                spell_list.retain(|s| !player.spellbook.contains(s));
+                let spell_seed = khash(inputs.seed * 141398471);
+                shuffle_vec(&mut spell_list, spell_seed);
+                return (SceneOutcome::Push(Box::new(SpellMenu::new(spell_list[0..3].try_into().unwrap()))), TriangleBuffer::new(inputs.screen_rect), None);
+            }
+        }
 
         // spawning
         /*
@@ -219,7 +252,7 @@ impl Scene for WaveGame {
                     for i in 0..10 {
                         self.spawn(1, seed * 12314121 + i);
                     }
-                    for i in 0..10 {
+                    for i in 0..8 {
                         self.spawn(6, seed * 12364171 + i);
                     }
                 },
@@ -247,10 +280,10 @@ impl Scene for WaveGame {
 
                 },
                 5 => {
-                    for i in 0..15 {
+                    for i in 0..13 {
                         self.spawn(2, seed * 12314121 + i);
                     }
-                    for i in 0..5 {
+                    for i in 0..4 {
                         self.spawn(4, seed * 12364171 + i);
                     }
                 },
@@ -528,7 +561,15 @@ impl Scene for WaveGame {
         buf_uv.draw_sprite(book_left_rect, BOOK_LEFT, 11.0);
         buf_uv.draw_sprite(book_right_rect, BOOK_RIGHT, 11.0);
         if let Some(player) = self.player.values().nth(0) {
-            buf_uv.draw_sprite(spell_rect, spell_sprite(player.spellbook[player.spell_cursor]), 12.0);
+            if player.spellbook.len() != 0 {
+                buf_uv.draw_sprite(spell_rect, spell_sprite(player.spellbook[player.spell_cursor]), 12.0);
+            }
+        }
+
+        if self.player.iter().nth(0).is_none() {
+            let reset_pane = inputs.screen_rect.child(0.4, 0.7, 0.2, 0.15).fit_aspect_ratio(2.0);
+            buf_uv.draw_sprite(reset_pane.child(0.0, 0.0, 0.5, 1.0), TUT_R, 12.0);
+            buf_uv.draw_sprite(reset_pane.child(0.5, 0.0, 0.5, 1.0), TUT_RESET, 12.0);
         }
 
         let frametime_ms = start.elapsed().as_secs_f32() * 1000.0;
@@ -537,5 +578,13 @@ impl Scene for WaveGame {
         }
 
         (SceneOutcome::None, buf, Some(buf_uv))
+    }
+}
+
+fn shuffle_vec(vec: &mut Vec<Spell>, mut seed: u32) {
+    for i in 0..vec.len() {
+        seed = khash(seed);
+        let swap_idx = i + (seed % (vec.len() - i) as u32) as usize;
+        vec.swap(i, swap_idx);
     }
 }

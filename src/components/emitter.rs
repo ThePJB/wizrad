@@ -1,5 +1,6 @@
 use crate::kmath::*;
 
+#[derive(Clone)]
 pub struct Emitter {
     pub interval: f32,
     pub last: f32,

@@ -15,6 +15,7 @@ use crate::components::player::*;
 use crate::components::physics::*;
 use crate::components::melee_damage::*;
 
+#[derive(Clone)]
 pub struct Entity {
     ai: Option<AI>,
     ai_caster: Option<AICaster>,

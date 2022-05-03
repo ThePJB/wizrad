@@ -173,3 +173,22 @@ todos:
 
 
 i could afford to prototype much harder for entities
+
+
+todo spell menu is jank
+  mostly because it takes you out of the game and youre like wtf
+  less frequent spell choices, doesn't feel special
+  more spells
+
+  like maybe I should jsut have a start wave (n) function, cant do scene shit from there. not sure about scenes ay
+  pretty hard to segregate code. maybe with imgui i dont need scenes. give subbys the same interface. and just compose for days
+    would nearly work, need to eat inputs
+
+spell: fissure
+  summons an entity that does dot
+
+spell: beam
+  new collider
+
+spell: piercy disk thing
+  needs status id's or something to prevent re-collision

@@ -10,8 +10,6 @@ use crate::spell::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
 
-use crate::spell_menu::*;
-
 use crate::components::team::*;
 use crate::components::ai::*;
 use crate::components::health::*;
@@ -32,10 +30,61 @@ use std::convert::TryInto;
 
 use glutin::event::VirtualKeyCode;
 
+pub struct SpellMenu {
+    choices: [Spell; 3],
+}
+
+impl SpellMenu {
+    pub fn new(seed: u32, current_spells: &[Spell]) -> SpellMenu {
+        let mut spell_list = vec![
+            Spell::Missile,
+            Spell::Fireball,
+            Spell::ConeFlames,
+            Spell::Pulse,
+            Spell::Lifesteal,
+            Spell::SummonBloodcasters,
+            Spell::SummonRushers,
+            Spell::Homing,
+        ];
+
+        spell_list.retain(|s| !current_spells.contains(s));
+        shuffle_vec(&mut spell_list, seed);
+        
+        SpellMenu { choices: spell_list[0..3].try_into().unwrap() }
+
+    }
+
+    pub fn frame(&self, inputs: &FrameInputState, buf: &mut TriangleBuffer, buf_uv:  &mut TriangleBufferUV) -> Option<Spell> {
+
+        let spell_menu = inputs.screen_rect.dilate(-0.4).fit_aspect_ratio(3.0).translate(Vec2::new(0.0, 0.2));
+        buf.draw_rect(spell_menu, Vec3::new(0.2, 0.2, 0.2), 15.0);
+        for i in 0..3 {
+            let spell_rect = spell_menu.grid_child(i, 0, 3, 1);
+            if spell_rect.contains(inputs.mouse_pos) {
+                buf.draw_rect(spell_rect, Vec3::new(1.0, 1.0, 1.0), 16.0);
+                if inputs.events.iter().any(|event| match event {
+                    KEvent::MouseLeft(false) => true,
+                    _ => false,
+                }) {
+                    return Some(self.choices[i as usize]);
+                }
+            }
+            buf_uv.draw_sprite(spell_rect, spell_sprite(self.choices[i as usize]), 17.0);
+        }
+        None
+    }
+}
+
+pub enum State {
+    Wave(i32),
+    Spawn(i32),
+    Recess(i32),
+}
+
 pub struct WaveGame {
     pub last_spawn: f32,
 
-    pub wave: i32,
+    pub state: State,
 
     pub look_center: Vec2,
 
@@ -57,19 +106,20 @@ pub struct WaveGame {
     pub ai_caster: HashMap<u32, AICaster>,
     pub physics: HashMap<u32, Physics>,
     pub rect: HashMap<u32, Rect>,
+
+    pub spell_menu: Option<SpellMenu>,
 }
 
 impl WaveGame {
     pub fn new() -> WaveGame {
         let mut wg = WaveGame {
-            wave: 0,
+            state: State::Recess(0),
             last_spawn: 0.0,
             look_center: Vec2::new(0.0, 0.0),
             particle_system: ParticleSystem{particles: Vec::new()},
             
             entity_id_counter: 0,
             entity_ids: HashSet::new(),
-
 
             player: HashMap::new(),
             team: HashMap::new(),
@@ -84,6 +134,7 @@ impl WaveGame {
             ai_caster: HashMap::new(),
             physics: HashMap::new(),
             rect: HashMap::new(),
+            spell_menu: None,
         };
 
         wg.add_player(Vec2::new(0.0, 0.0));
@@ -184,113 +235,87 @@ impl Scene for WaveGame {
         let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
 
 
-        // player spells
-
-        if let Some(player) = self.player.values_mut().nth(0) {
-            let mut spell_list = vec![
-                Spell::Missile,
-                Spell::Fireball,
-                Spell::ConeFlames,
-                Spell::Pulse,
-                Spell::Lifesteal,
-                Spell::SummonBloodcasters,
-                Spell::SummonRushers,
-                Spell::Homing,
-            ];
-
-            if (player.spellbook.len() as i32) < self.wave + 1 {
-                spell_list.retain(|s| !player.spellbook.contains(s));
-                let spell_seed = khash(inputs.seed * 141398471);
-                shuffle_vec(&mut spell_list, spell_seed);
-                return (SceneOutcome::Push(Box::new(SpellMenu::new(spell_list[0..3].try_into().unwrap()))), TriangleBuffer::new(inputs.screen_rect), None);
-            }
-        }
-
-        // spawning
-        /*
-        let spawn_interval = 3.0;
-        if inputs.t as f32 - self.last_spawn > spawn_interval {
-            self.last_spawn = inputs.t as f32;
-
-            let pos = match khash(inputs.frame * 123415) % 4 {
-                0 => Vec2::new(level_min, kuniform(inputs.frame * 138971377, level_min, level_max)),
-                1 => Vec2::new(level_max, kuniform(inputs.frame * 138971377, level_min, level_max)),
-                2 => Vec2::new(kuniform(inputs.frame * 138971377, level_min, level_max), level_min),
-                3 => Vec2::new(kuniform(inputs.frame * 138971377, level_min, level_max), level_max),
-                _ => panic!("unreachable"),
-            };
-
-            match khash(inputs.frame * 13498713) % 4 {
-                0 => self.add_fbm_enemy(pos),
-                1 => self.add_zerg_enemy(TEAM_ENEMIES, pos),
-                2 => self.add_caster_enemy(pos),
-                3 => self.add_summoner_enemy(pos),
-                _ => panic!("unreachable"),
-            }
-        }
-        */
-
         // new spawning
         let enemy_count = self.team.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
         if enemy_count == 0 {
-            self.wave += 1;
-            println!("Wave {}", self.wave);
-            let seed = khash(inputs.frame);
-            match self.wave {
-                1 => {
-                    for i in 0..10 {
-                        self.spawn(0, seed + i);
-                    }
-                    for i in 0..20 {
-                        self.spawn(1, seed * 12314121 + i);
-                    }
-                },
-                2 => {
-                    for i in 0..10 {
-                        self.spawn(0, seed + i);
-                    }
-                    for i in 0..10 {
-                        self.spawn(1, seed * 12314121 + i);
-                    }
-                    for i in 0..8 {
-                        self.spawn(6, seed * 12364171 + i);
+            match self.state {
+                State::Recess(0) |
+                State::Recess(1) |
+                State::Recess(3) |
+                State::Recess(5)
+                 => {
+                    if self.spell_menu.is_none() {
+                        if let Some(player) = self.player.values().nth(0) {
+                            self.spell_menu = Some(SpellMenu::new(inputs.seed * 172137163, &player.spellbook));
+                        }
                     }
                 },
-                3 => {
-                    for i in 0..10 {
-                        self.spawn(0, seed + i);
-                    }
-                    for i in 0..10 {
-                        self.spawn(2, seed * 12314121 + i);
-                    }
-                    for i in 0..5 {
-                        self.spawn(5, seed * 95371 + i);
-                    }
+                State::Recess(n) => {
+                    self.state = State::Spawn(n);
                 },
-                4 => {
-                    for i in 0..10 {
-                        self.spawn(0, seed + i);
+                State::Spawn(n) => {
+                    match n {
+                        1 => {
+                            for i in 0..10 {
+                                self.spawn(0, inputs.seed + i);
+                            }
+                            for i in 0..20 {
+                                self.spawn(1, inputs.seed * 12314121 + i);
+                            }
+                        },
+                        2 => {
+                            for i in 0..10 {
+                                self.spawn(0, inputs.seed + i);
+                            }
+                            for i in 0..10 {
+                                self.spawn(1, inputs.seed * 12314121 + i);
+                            }
+                            for i in 0..8 {
+                                self.spawn(6, inputs.seed * 12364171 + i);
+                            }
+                        },
+                        3 => {
+                            for i in 0..10 {
+                                self.spawn(0, inputs.seed + i);
+                            }
+                            for i in 0..10 {
+                                self.spawn(2, inputs.seed * 12314121 + i);
+                            }
+                            for i in 0..5 {
+                                self.spawn(5, inputs.seed * 95371 + i);
+                            }
+                        },
+                        4 => {
+                            for i in 0..10 {
+                                self.spawn(0, inputs.seed + i);
+                            }
+                            for i in 0..10 {
+                                self.spawn(2, inputs.seed * 12314121 + i);
+                            }
+                            for i in 0..10 {
+                                self.spawn(3, inputs.seed * 12364171 + i);
+                            }
+        
+                        },
+                        5 => {
+                            for i in 0..13 {
+                                self.spawn(2, inputs.seed * 12314121 + i);
+                            }
+                            for i in 0..4 {
+                                self.spawn(4, inputs.seed * 12364171 + i);
+                            }
+                        },
+                        _ => {
+                            println!("winner!");
+                            return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
+                        },
                     }
-                    for i in 0..10 {
-                        self.spawn(2, seed * 12314121 + i);
-                    }
-                    for i in 0..10 {
-                        self.spawn(3, seed * 12364171 + i);
-                    }
-
+                    self.state = State::Wave(n);
+                    println!("Wave {}", n);
                 },
-                5 => {
-                    for i in 0..13 {
-                        self.spawn(2, seed * 12314121 + i);
-                    }
-                    for i in 0..4 {
-                        self.spawn(4, seed * 12364171 + i);
-                    }
-                },
-                _ => {
-                    println!("winner!");
-                    return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
-                },
+                State::Wave(n) => {
+                    self.state = State::Recess(n + 1);
+                }
             }
         }
 
@@ -331,17 +356,19 @@ impl Scene for WaveGame {
                 player_caster.last_cast = 0.0;
             }
             if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::E, true) => {true}, _ => {false}}) {
-                if cc.spell_cursor < cc.spellbook.len() - 1 { cc.spell_cursor += 1 }
+                if cc.spell_cursor < cc.spellbook.len() as i32 - 1 { cc.spell_cursor += 1 }
                 let mut player_caster = self.caster.get_mut(id).unwrap();
                 player_caster.last_cast = 0.0;
             }
             let p_phys = self.physics.entry(*id);
             p_phys.and_modify(|e| e.velocity = player_move_dir.normalize() * cc.speed);
             
-            if inputs.events.iter().any(|e| match e { KEvent::MouseLeft(true) => {true}, _ => {false}}) {
-                commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor], false));
-            } else if inputs.held_lmb {
-                commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor], true));
+            if self.spell_menu.is_none() {
+                if inputs.events.iter().any(|e| match e { KEvent::MouseLeft(true) => {true}, _ => {false}}) {
+                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], false));
+                } else if inputs.held_lmb {
+                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], true));
+                }
             }
         }
         
@@ -560,9 +587,22 @@ impl Scene for WaveGame {
         let book_right_rect = spell_rect.translate(Vec2::new(spell_rect.w/2.0, 0.0));
         buf_uv.draw_sprite(book_left_rect, BOOK_LEFT, 11.0);
         buf_uv.draw_sprite(book_right_rect, BOOK_RIGHT, 11.0);
-        if let Some(player) = self.player.values().nth(0) {
+        if let Some(player) = self.player.values_mut().nth(0) {
             if player.spellbook.len() != 0 {
-                buf_uv.draw_sprite(spell_rect, spell_sprite(player.spellbook[player.spell_cursor]), 12.0);
+                buf_uv.draw_sprite(spell_rect, spell_sprite(player.spellbook[player.spell_cursor as usize]), 12.0);
+            }
+
+            // spell menu
+            if let Some(spell_menu) = &self.spell_menu {
+                if let Some(learned_spell) = spell_menu.frame(&inputs, &mut buf, &mut buf_uv) {
+                    player.spellbook.push(learned_spell);
+                    self.spell_menu = None;
+                    match self.state {
+                        State::Recess(0) => self.state = State::Recess(1),
+                        State::Recess(n) => self.state = State::Spawn(n),
+                        _ => {},
+                    }
+                }
             }
         }
 

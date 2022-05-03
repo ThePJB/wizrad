@@ -12,7 +12,6 @@ mod entity;
 mod spell;
 
 mod wave_game;
-mod spell_menu;
 mod tutorial;
 mod victory;
 

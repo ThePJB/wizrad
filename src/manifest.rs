@@ -7,6 +7,7 @@ pub const ICON_SUMMON_ZERGS: i32 = 5;
 pub const ICON_FIREBALL: i32 = 6;
 pub const ICON_WATER: i32 = 7;
 pub const ICON_HOMING: i32 = 8;
+pub const ICON_FIRESTORM: i32 = 9;
 
 pub const BOOK_LEFT: i32 = 20;
 pub const BOOK_RIGHT: i32 = 21;

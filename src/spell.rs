@@ -16,6 +16,7 @@ pub enum Spell {
     SummonRushers,
     SummonSummoners,
     Fireball,
+    Firestorm,
     Water,
     Homing,
 }
@@ -99,7 +100,7 @@ impl WaveGame {
                 Spell::Pulse => {
                     if cc.last_cast + 0.1 > t { return ; }
                     cc.last_cast = t;
-                    let cost = 7.0;
+                    let cost = 6.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
                         let missile = Entity::new()
@@ -109,7 +110,7 @@ impl WaveGame {
                             .with_projectile(caster_id, 34.0)
                             .with_emitter(0.05, Vec3::new(0.0, 0.8, 0.0), 3.0, 0.3, 0.1)
                             .with_render_solid(Vec3::new(0.0, 0.8, 0.0))
-                            .with_expiry(t + (3.0 / 25.0));
+                            .with_expiry(t + (4.0 / 25.0));
                     self.add_entity(missile);
                     }
                 },
@@ -140,11 +141,26 @@ impl WaveGame {
                         self.add_fireball(caster_id, target, t);
                     }
                 },
+                Spell::Firestorm => {
+                    if cc.last_cast + 0.25 > t { return ; }
+                    cc.last_cast = t;
+                    let cost = 8.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        self.add_entity(Entity::new()
+                            .with_team(caster_team)
+                            .with_physics(4.0, (target - caster_pos).normalize() * 15.0)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.5, 0.5))
+                            .with_projectile_ex(caster_id, 18.0, 2.0, 0.0, 0.0)
+                            .with_emitter(0.05, Vec3::new(1.0, 0.0, 0.0), 2.0, 0.7, 0.15)
+                            .with_render_solid(Vec3::new(1.0, 0.0, 0.0)));
+                    }
+                },
                 Spell::SummonRushers => {
                     if repeat { return; }
                     if cc.last_cast + 0.3 > t { return ; }
                     cc.last_cast = t;
-                    let cost = 50.0;
+                    let cost = 20.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
@@ -194,6 +210,7 @@ pub fn spell_sprite(spell: Spell) -> i32 {
         Spell::ConeFlames => ICON_FIRE,
         Spell::Missile => ICON_MAGIC_MISSILE,
         Spell::Pulse => ICON_PULSE,
+        Spell::Firestorm => ICON_FIRESTORM,
         Spell::Lifesteal => ICON_BLOOD_MISSILE,
         Spell::SummonBloodcasters => ICON_BLOOD_ACOLYTES,
         Spell::SummonRushers => ICON_SUMMON_ZERGS,

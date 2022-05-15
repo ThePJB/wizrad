@@ -41,6 +41,7 @@ impl SpellMenu {
             Spell::Fireball,
             Spell::ConeFlames,
             Spell::Pulse,
+            Spell::Firestorm,
             Spell::Lifesteal,
             Spell::SummonBloodcasters,
             Spell::SummonRushers,
@@ -56,10 +57,13 @@ impl SpellMenu {
 
     pub fn frame(&self, inputs: &FrameInputState, buf: &mut TriangleBuffer, buf_uv:  &mut TriangleBufferUV) -> Option<Spell> {
 
-        let spell_menu = inputs.screen_rect.dilate(-0.4).fit_aspect_ratio(3.0).translate(Vec2::new(0.0, 0.2));
-        buf.draw_rect(spell_menu, Vec3::new(0.2, 0.2, 0.2), 15.0);
+        let spell_menu = inputs.screen_rect.dilate(-0.35).fit_aspect_ratio(3.0);//.translate(Vec2::new(0.0, 0.2));
+        // buf.draw_rect(spell_menu, Vec3::new(0.2, 0.2, 0.2), 15.0);
         for i in 0..3 {
-            let spell_rect = spell_menu.grid_child(i, 0, 3, 1);
+            let btn_rect = spell_menu.grid_child(i, 0, 3, 1).dilate(-0.01);
+            buf.draw_rect(btn_rect, Vec3::new(0.1, 0.1, 0.1), 15.0);
+            buf.draw_rect(btn_rect.dilate(-0.01), Vec3::new(0.3, 0.3, 0.3), 15.5);
+            let spell_rect = btn_rect.dilate(-0.01);
             if spell_rect.contains(inputs.mouse_pos) {
                 buf.draw_rect(spell_rect, Vec3::new(1.0, 1.0, 1.0), 16.0);
                 if inputs.events.iter().any(|event| match event {
@@ -212,14 +216,6 @@ pub enum Command {
 
 impl Scene for WaveGame {
     fn handle_signal(&mut self, signal: SceneSignal) -> SceneOutcome {
-        match signal {
-            SceneSignal::SpellChoice(spell) => {
-                if let Some((_, player)) = self.player.iter_mut().nth(0) {
-                    player.spellbook.push(spell);
-                }
-            }
-            _ => {},
-        }
         SceneOutcome::None
     }
 
@@ -326,15 +322,17 @@ impl Scene for WaveGame {
             return (SceneOutcome::QuitProgram, TriangleBuffer::new(inputs.screen_rect), None);
         }
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
-            reset = true;
-        }
-        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
-            for (id, com) in self.team.iter() {
-                if com.team == TEAM_ENEMIES {
-                    dead_list.push(*id);
-                }
+            if self.player.iter().nth(0).is_none() {
+                reset = true;
             }
         }
+        // if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
+        //     for (id, com) in self.team.iter() {
+        //         if com.team == TEAM_ENEMIES {
+        //             dead_list.push(*id);
+        //         }
+        //     }
+        // }
 
         for (id, cc) in self.player.iter_mut() {
             let mut player_move_dir = Vec2::new(0.0, 0.0);
@@ -614,7 +612,7 @@ impl Scene for WaveGame {
 
         let frametime_ms = start.elapsed().as_secs_f32() * 1000.0;
         if frametime_ms > 1.0 {
-            println!("whoa that frame took forever: {}ms", frametime_ms);
+            // println!("whoa that frame took forever: {}ms", frametime_ms);
         }
 
         (SceneOutcome::None, buf, Some(buf_uv))

@@ -104,7 +104,7 @@ impl WaveGame {
             .with_ai(10.0, 0.0, 2.0, 6.0)
             .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
             .with_ai_caster(10.0, Spell::SummonRushers)
-            .with_caster(50.0, 4.0);
+            .with_caster(20.0, 2.0);
         self.add_entity(caster);
     }
 

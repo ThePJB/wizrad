@@ -166,9 +166,9 @@ impl WaveGame {
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
     
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
+                        self.add_entity(entity_zerg(team, pos.offset_r_theta(1.0, 0.0)));
+                        self.add_entity(entity_zerg(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0)));
+                        self.add_entity(entity_zerg(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0)));
                     }
                 },
                 Spell::SummonBloodcasters => {
@@ -182,8 +182,8 @@ impl WaveGame {
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
                         
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, PI));
+                        self.add_entity(entity_bloodcaster(team, pos.offset_r_theta(1.0, 0.0)));
+                        self.add_entity(entity_bloodcaster(team, pos.offset_r_theta(1.0, PI)));
                     }
                 },
                 Spell::SummonSummoners => {
@@ -195,9 +195,10 @@ impl WaveGame {
                         cc.mana -= cost;
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 0.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0));
+                        
+                        self.add_entity(entity_summoner(team, pos.offset_r_theta(2.0, 0.0)));
+                        self.add_entity(entity_summoner(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0)));
+                        self.add_entity(entity_summoner(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0)));
                     }
                 },
             }

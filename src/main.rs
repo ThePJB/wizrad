@@ -10,6 +10,7 @@ mod particles;
 mod entity_definitions;
 mod entity;
 mod spell;
+mod spawner;
 
 mod wave_game;
 mod tutorial;

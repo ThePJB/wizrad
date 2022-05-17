@@ -9,6 +9,8 @@ use crate::kmath::*;
 use crate::spell::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
+use crate::entity::*;
+use crate::spawner::*;
 
 use crate::components::team::*;
 use crate::components::ai::*;
@@ -28,14 +30,16 @@ use std::f32::consts::PI;
 use std::time::{Instant, Duration};
 use std::convert::TryInto;
 
+
 use glutin::event::VirtualKeyCode;
 
 pub struct SpellMenu {
+    click_after: f32,
     choices: [Spell; 3],
 }
 
 impl SpellMenu {
-    pub fn new(seed: u32, current_spells: &[Spell]) -> SpellMenu {
+    pub fn new(seed: u32, current_spells: &[Spell], t: f32) -> SpellMenu {
         let mut spell_list = vec![
             Spell::Missile,
             Spell::Fireball,
@@ -51,7 +55,10 @@ impl SpellMenu {
         spell_list.retain(|s| !current_spells.contains(s));
         shuffle_vec(&mut spell_list, seed);
         
-        SpellMenu { choices: spell_list[0..3].try_into().unwrap() }
+        SpellMenu { 
+            choices: spell_list[0..3].try_into().unwrap(),
+            click_after: t + 0.3,
+        }
 
     }
 
@@ -61,19 +68,19 @@ impl SpellMenu {
         // buf.draw_rect(spell_menu, Vec3::new(0.2, 0.2, 0.2), 15.0);
         for i in 0..3 {
             let btn_rect = spell_menu.grid_child(i, 0, 3, 1).dilate(-0.01);
-            buf.draw_rect(btn_rect, Vec3::new(0.1, 0.1, 0.1), 15.0);
-            buf.draw_rect(btn_rect.dilate(-0.01), Vec3::new(0.3, 0.3, 0.3), 15.5);
+            buf.draw_rect(btn_rect, Vec3::new(0.1, 0.1, 0.1), 25.0);
+            buf.draw_rect(btn_rect.dilate(-0.01), Vec3::new(0.3, 0.3, 0.3), 25.5);
             let spell_rect = btn_rect.dilate(-0.01);
             if spell_rect.contains(inputs.mouse_pos) {
-                buf.draw_rect(spell_rect, Vec3::new(1.0, 1.0, 1.0), 16.0);
-                if inputs.events.iter().any(|event| match event {
+                buf.draw_rect(spell_rect, Vec3::new(1.0, 1.0, 1.0), 26.0);
+                if inputs.t as f32 > self.click_after && inputs.events.iter().any(|event| match event {
                     KEvent::MouseLeft(false) => true,
                     _ => false,
                 }) {
                     return Some(self.choices[i as usize]);
                 }
             }
-            buf_uv.draw_sprite(spell_rect, spell_sprite(self.choices[i as usize]), 17.0);
+            buf_uv.draw_sprite(spell_rect, spell_sprite(self.choices[i as usize]), 27.0);
         }
         None
     }
@@ -86,13 +93,11 @@ pub enum State {
 }
 
 pub struct WaveGame {
-    pub last_spawn: f32,
-
-    pub state: State,
-
+    pub t: f64,
     pub look_center: Vec2,
 
     pub particle_system: ParticleSystem,
+    pub spawn_system: Spawner,
 
     pub entity_id_counter: u32,
     pub entity_ids: HashSet<u32>,
@@ -115,12 +120,21 @@ pub struct WaveGame {
 }
 
 impl WaveGame {
-    pub fn new() -> WaveGame {
+    pub fn new(time: f32) -> WaveGame {
+        let mut spawner = Spawner::new();
+        spawner.add_spawn_entity(entity_basic(Vec2::new(0.0, 0.0)), 4.0);
+        spawner.add_spawn_entity(entity_zerg(TEAM_ENEMIES, Vec2::new(0.0, 0.0)), 2.5);
+        // spawner.add_spawn_entity(entity_bloodcaster(TEAM_ENEMIES, Vec2::new(0.0, 0.0)), 7.0);
+        spawner.add_spawn_entity(entity_caster(Vec2::new(0.0, 0.0)), 5.0);
+        // spawner.add_spawn_entity(entity_pulsecaster(Vec2::new(0.0, 0.0)), 9.5);
+        spawner.add_spawn_entity(entity_summoner(TEAM_ENEMIES, Vec2::new(0.0, 0.0)), 10.0);
+        spawner.add_spawn_entity(entity_summoner_summoner(TEAM_ENEMIES, Vec2::new(0.0, 0.0)), 20.0);
+
         let mut wg = WaveGame {
-            state: State::Recess(0),
-            last_spawn: 0.0,
+            t: 0.0,
             look_center: Vec2::new(0.0, 0.0),
             particle_system: ParticleSystem{particles: Vec::new()},
+            spawn_system: spawner,
             
             entity_id_counter: 0,
             entity_ids: HashSet::new(),
@@ -141,249 +155,29 @@ impl WaveGame {
             spell_menu: None,
         };
 
-        wg.add_player(Vec2::new(0.0, 0.0));
+        wg.add_entity(entity_player(Vec2::new(0.0, 0.0)));
 
         println!("Welcome to WAVE GAME. Controls are WASD movement, Q-E spellbook page, Left click to cast. Survive all rounds. ");
 
         wg
     }
 
-    pub fn remove_entity(&mut self, entity_id: u32) {
-        self.entity_ids.remove(&entity_id);
-        self.ai.remove(&entity_id);
-        self.health.remove(&entity_id);
-        self.player.remove(&entity_id);
-        self.team.remove(&entity_id);
-        self.caster.remove(&entity_id);
-        self.projectile.remove(&entity_id);
-        self.render.remove(&entity_id);
-        self.expiry.remove(&entity_id);
-        self.melee_damage.remove(&entity_id);
-        self.emitter.remove(&entity_id);
-        self.ai_caster.remove(&entity_id);
-        self.physics.remove(&entity_id);
-        self.rect.remove(&entity_id);
-    }
-
-    // p is in world space, how to make it into screen space
-    pub fn screen_to_world(p: Vec2, world_tether: Vec2, look_offset: Vec2, screen_rect: Rect) -> Vec2 {
-        let dims = SCALE * screen_rect.br();
-        let look_vec = SCALE * look_offset - dims/2.0;
-        let screen_center = world_tether + LOOK_STRENGTH * look_vec;
-        let cam_rect = Rect::new_centered(screen_center.x, screen_center.y, dims.x, dims.y);
-
-        // the rect that represents where the camera is in world space
-        // maybe the child function
-        
-        Vec2::new(
-            cam_rect.x + cam_rect.w * p.x / screen_rect.w,
-            cam_rect.y + cam_rect.h * p.y / screen_rect.h,
-        )
-    }
-
-
-    pub fn spawn(&mut self, id: u32, seed: u32) {
-        let level_min = -14.5;
-        let level_max = 14.5;
-
-        let pos = match khash(seed * 123415) % 4 {
-            0 => Vec2::new(level_min, kuniform(seed * 138971377, level_min, level_max)),
-            1 => Vec2::new(level_max, kuniform(seed * 138971377, level_min, level_max)),
-            2 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_min),
-            3 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_max),
-            _ => panic!("unreachable"),
-        };
-
-        match id {
-            0 => self.add_fbm_enemy(pos),
-            1 => self.add_zerg_enemy(TEAM_ENEMIES, pos),
-            2 => self.add_caster_enemy(pos),
-            3 => self.add_summoner_enemy(TEAM_ENEMIES, pos),
-            4 => self.add_summoner_summoner_enemy(TEAM_ENEMIES, pos),
-            5 => self.add_pulsecaster_enemy(pos),
-            6 => self.add_bloodcaster(TEAM_ENEMIES, pos),
-            _ => panic!("unreachable"),
-        }
-    }
-}
-
-pub const LOOK_STRENGTH: f32 = 0.2;
-pub const SCALE: f32 = 20.0;
-
-pub enum Command {
-    Cast(u32, Vec2, Spell, bool),
-}
-
-impl Scene for WaveGame {
-    fn handle_signal(&mut self, signal: SceneSignal) -> SceneOutcome {
-        SceneOutcome::None
-    }
-
-    fn frame(&mut self, inputs: FrameInputState) -> (SceneOutcome, TriangleBuffer, Option<TriangleBufferUV>) {
-
-        let start = Instant::now();
-
-        let mouse_world = WaveGame::screen_to_world(inputs.mouse_pos, self.look_center, inputs.mouse_pos, inputs.screen_rect);
-
-        let mut commands = Vec::new();
+    fn update(&mut self, inputs: &FrameInputState, mut commands: Vec<Command>) {
         let mut dead_list = Vec::new();
-
-        let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
-
-
-        // new spawning
-        let enemy_count = self.team.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
-        if enemy_count == 0 {
-            match self.state {
-                State::Recess(0) |
-                State::Recess(1) |
-                State::Recess(3) |
-                State::Recess(5)
-                 => {
-                    if self.spell_menu.is_none() {
-                        if let Some(player) = self.player.values().nth(0) {
-                            self.spell_menu = Some(SpellMenu::new(inputs.seed * 172137163, &player.spellbook));
-                        }
-                    }
-                },
-                State::Recess(n) => {
-                    self.state = State::Spawn(n);
-                },
-                State::Spawn(n) => {
-                    match n {
-                        1 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..20 {
-                                self.spawn(1, inputs.seed * 12314121 + i);
-                            }
-                        },
-                        2 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(1, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..8 {
-                                self.spawn(6, inputs.seed * 12364171 + i);
-                            }
-                        },
-                        3 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..5 {
-                                self.spawn(5, inputs.seed * 95371 + i);
-                            }
-                        },
-                        4 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(3, inputs.seed * 12364171 + i);
-                            }
+        let level_rect = Rect::new_centered(0.0, 0.0, 40.0, 40.0);
         
-                        },
-                        5 => {
-                            for i in 0..13 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..4 {
-                                self.spawn(4, inputs.seed * 12364171 + i);
-                            }
-                        },
-                        _ => {
-                            println!("winner!");
-                            return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
-                        },
-                    }
-                    self.state = State::Wave(n);
-                    println!("Wave {}", n);
-                },
-                State::Wave(n) => {
-                    self.state = State::Recess(n + 1);
-                }
-            }
-        }
-
-        let mut reset = false;
-
-        // Inputs
-        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Escape, true) => {true}, _ => {false}}) {
-            return (SceneOutcome::QuitProgram, TriangleBuffer::new(inputs.screen_rect), None);
-        }
-        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
-            if self.player.iter().nth(0).is_none() {
-                reset = true;
-            }
-        }
-        // if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
-        //     for (id, com) in self.team.iter() {
-        //         if com.team == TEAM_ENEMIES {
-        //             dead_list.push(*id);
-        //         }
-        //     }
-        // }
-
-        for (id, cc) in self.player.iter_mut() {
-            let mut player_move_dir = Vec2::new(0.0, 0.0);
-            if inputs.held_keys.contains(&VirtualKeyCode::W) {
-                player_move_dir.y -= 1.0;
-            }
-            if inputs.held_keys.contains(&VirtualKeyCode::S) {
-                player_move_dir.y += 1.0;
-            }
-            if inputs.held_keys.contains(&VirtualKeyCode::A) {
-                player_move_dir.x -= 1.0;
-            }
-            if inputs.held_keys.contains(&VirtualKeyCode::D) {
-                player_move_dir.x += 1.0;
-            }
-            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Q, true) => {true}, _ => {false}}) {
-                if cc.spell_cursor > 0 { cc.spell_cursor -= 1 }
-                let mut player_caster = self.caster.get_mut(id).unwrap();
-                player_caster.last_cast = 0.0;
-            }
-            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::E, true) => {true}, _ => {false}}) {
-                if cc.spell_cursor < cc.spellbook.len() as i32 - 1 { cc.spell_cursor += 1 }
-                let mut player_caster = self.caster.get_mut(id).unwrap();
-                player_caster.last_cast = 0.0;
-            }
-            let p_phys = self.physics.entry(*id);
-            p_phys.and_modify(|e| e.velocity = player_move_dir.normalize() * cc.speed);
-            
-            if self.spell_menu.is_none() {
-                if inputs.events.iter().any(|e| match e { KEvent::MouseLeft(true) => {true}, _ => {false}}) {
-                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], false));
-                } else if inputs.held_lmb {
-                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], true));
-                }
-            }
-        }
-        
-        if reset {
-            *self = WaveGame::new();
-        }
+        self.t += inputs.dt;
 
         // emit particles
         for (id, ec) in self.emitter.iter_mut() {
             let mut iter_count = 0;
-            if ec.last + ec.interval < inputs.t as f32 {
+            if ec.last + ec.interval < self.t as f32 {
                 iter_count += 1;
                 ec.last += ec.interval;
                 let pos = self.rect.get(&id).unwrap().centroid();
                 let seed = inputs.frame * 12315 + *id * 1412337 + iter_count;
                 self.particle_system.add_particle(Particle {
-                    expiry: inputs.t as f32 + ec.lifespan,
+                    expiry: self.t as f32 + ec.lifespan,
                     velocity: Vec2::new(kuniform(seed, -1.0, 1.0), kuniform(seed * 1771715, -1.0, 1.0)).normalize() * ec.speed,
                     rect: Rect::new_centered(pos.x, pos.y, ec.size.x, ec.size.y),
                     colour: ec.colour,
@@ -391,16 +185,16 @@ impl Scene for WaveGame {
             }
         }
 
-        self.particle_system.update(inputs.t as f32, inputs.dt as f32);
+        self.particle_system.update(self.t as f32, inputs.dt as f32);
         
         // AI
-        self.update_movement_ai(inputs.t as f32, inputs.dt as f32, inputs.frame, level_rect);
-        self.update_casting_ai(inputs.t as f32, &mut commands);
+        self.update_movement_ai(self.t as f32, inputs.dt as f32, inputs.frame, level_rect);
+        self.update_casting_ai(self.t as f32, &mut commands);
         
         for command in commands {
             match command {
                 Command::Cast(caster_id, target, spell, repeat) => {
-                    self.cast_spell(inputs.t as f32, caster_id, target, spell, repeat);
+                    self.cast_spell(self.t as f32, caster_id, target, spell, repeat);
                 },
             }
         }
@@ -440,7 +234,13 @@ impl Scene for WaveGame {
                 if proj.aoe > 0.0 {
                     for (id, _) in self.physics.iter().filter(|(id, com)| self.rect.get(id).unwrap().centroid().dist(impact_location) <= proj.aoe && proj_team != target_team) {
                         if let Some(health) = self.health.get_mut(&id) {
-                            health.damage(proj.damage, inputs.t as f32);
+                            if health.damage(proj.damage, self.t as f32) {
+                                // player kill tracking
+                                if let Some(player) = self.player.get_mut(&proj.source) {
+                                    player.kills += 1;
+                                    println!("kills: {}", player.kills);
+                                }
+                            };
                             if let Some(caster_hp) = self.health.get_mut(&proj.source) {
                                 caster_hp.current += proj.lifesteal_percent * proj.damage;
                                 caster_hp.current = caster_hp.current.min(caster_hp.max);
@@ -449,7 +249,13 @@ impl Scene for WaveGame {
                     }
                 } else {
                     if let Some(health) = self.health.get_mut(&ce.object) {
-                        health.damage(proj.damage, inputs.t as f32);
+                        if health.damage(proj.damage, self.t as f32) {
+                            // player kill tracking
+                            if let Some(player) = self.player.get_mut(&proj.source) {
+                                player.kills += 1;
+                                println!("kills: {}", player.kills);
+                            }
+                        };
                         if let Some(caster_hp) = self.health.get_mut(&proj.source) {
                             caster_hp.current += proj.lifesteal_percent * proj.damage;
                             caster_hp.current = caster_hp.current.min(caster_hp.max);
@@ -458,18 +264,18 @@ impl Scene for WaveGame {
                 }
                 let pos = self.rect.get(&ce.subject).unwrap().centroid();
                 if proj.splat_duration > 0.0 {
-                    self.add_firesplat(pos, inputs.t as f32);
+                    self.add_firesplat(pos, self.t as f32);
                 }
                 dead_list.push(ce.subject);
             }
         }
 
         // handle melee damage
-        self.resolve_melee_damage(&collision_events, inputs.t as f32);
+        self.resolve_melee_damage(&collision_events, self.t as f32);
 
         // expire timed lives
         for (id, timed) in self.expiry.iter() {
-            if timed.expiry < inputs.t as f32 {
+            if timed.expiry < self.t as f32 {
                 dead_list.push(*id);
             }
         }
@@ -532,6 +338,144 @@ impl Scene for WaveGame {
         for health in self.health.values_mut() {
             health.current = health.max.min(health.current + health.regen * inputs.dt as f32)
         }
+    }
+
+    pub fn remove_entity(&mut self, entity_id: u32) {
+        self.entity_ids.remove(&entity_id);
+        self.ai.remove(&entity_id);
+        self.health.remove(&entity_id);
+        self.player.remove(&entity_id);
+        self.team.remove(&entity_id);
+        self.caster.remove(&entity_id);
+        self.projectile.remove(&entity_id);
+        self.render.remove(&entity_id);
+        self.expiry.remove(&entity_id);
+        self.melee_damage.remove(&entity_id);
+        self.emitter.remove(&entity_id);
+        self.ai_caster.remove(&entity_id);
+        self.physics.remove(&entity_id);
+        self.rect.remove(&entity_id);
+    }
+
+    // p is in world space, how to make it into screen space
+    pub fn screen_to_world(p: Vec2, world_tether: Vec2, look_offset: Vec2, screen_rect: Rect) -> Vec2 {
+        let dims = SCALE * screen_rect.br();
+        let look_vec = SCALE * look_offset - dims/2.0;
+        let screen_center = world_tether + LOOK_STRENGTH * look_vec;
+        let cam_rect = Rect::new_centered(screen_center.x, screen_center.y, dims.x, dims.y);
+
+        // the rect that represents where the camera is in world space
+        // maybe the child function
+        
+        Vec2::new(
+            cam_rect.x + cam_rect.w * p.x / screen_rect.w,
+            cam_rect.y + cam_rect.h * p.y / screen_rect.h,
+        )
+    }
+}
+
+pub const LOOK_STRENGTH: f32 = 0.2;
+pub const SCALE: f32 = 20.0;
+
+pub enum Command {
+    Cast(u32, Vec2, Spell, bool),
+}
+
+impl Scene for WaveGame {
+    fn handle_signal(&mut self, signal: SceneSignal) -> SceneOutcome {
+        SceneOutcome::None
+    }
+
+    fn frame(&mut self, inputs: FrameInputState) -> (SceneOutcome, TriangleBuffer, Option<TriangleBufferUV>) {
+
+        // refactor this, own t, pause if spell menu
+        // maybe have a update game routine
+
+        let start = Instant::now();
+
+        let mut commands = Vec::new();
+
+        let mouse_world = WaveGame::screen_to_world(inputs.mouse_pos, self.look_center, inputs.mouse_pos, inputs.screen_rect);
+
+
+        let level_rect = Rect::new_centered(0.0, 0.0, 40.0, 40.0);
+
+
+        let mut reset = false;
+
+        if let Some(player) = self.player.values().nth(0) {
+            if player.spellbook.len() < 1 || 
+                    (player.kills > 10 && player.spellbook.len() < 2) ||
+                    (player.kills > 100 && player.spellbook.len() < 3) ||
+                    (player.kills > 300 && player.spellbook.len() < 4) ||
+                    (player.kills > 600 && player.spellbook.len() < 5)
+                      {
+                if self.spell_menu.is_none() {
+                    self.spell_menu = Some(SpellMenu::new(inputs.seed, &player.spellbook, inputs.t as f32));
+                }
+            } else {
+                // spawning
+                if let Some(ent) = self.spawn_system.frame(&inputs) {
+                    self.add_entity(ent);
+                }
+            }
+        }
+
+
+        // Inputs
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Escape, true) => {true}, _ => {false}}) {
+            return (SceneOutcome::QuitProgram, TriangleBuffer::new(inputs.screen_rect), None);
+        }
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
+            if self.player.iter().nth(0).is_none() {
+                reset = true;
+            }
+        }
+
+        for (id, cc) in self.player.iter_mut() {
+            let mut player_move_dir = Vec2::new(0.0, 0.0);
+            if inputs.held_keys.contains(&VirtualKeyCode::W) {
+                player_move_dir.y -= 1.0;
+            }
+            if inputs.held_keys.contains(&VirtualKeyCode::S) {
+                player_move_dir.y += 1.0;
+            }
+            if inputs.held_keys.contains(&VirtualKeyCode::A) {
+                player_move_dir.x -= 1.0;
+            }
+            if inputs.held_keys.contains(&VirtualKeyCode::D) {
+                player_move_dir.x += 1.0;
+            }
+            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::Q, true) => {true}, _ => {false}}) {
+                if cc.spell_cursor > 0 { cc.spell_cursor -= 1 }
+                let mut player_caster = self.caster.get_mut(id).unwrap();
+                player_caster.last_cast = 0.0;
+            }
+            if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::E, true) => {true}, _ => {false}}) {
+                if cc.spell_cursor < cc.spellbook.len() as i32 - 1 { cc.spell_cursor += 1 }
+                let mut player_caster = self.caster.get_mut(id).unwrap();
+                player_caster.last_cast = 0.0;
+            }
+            let p_phys = self.physics.entry(*id);
+            p_phys.and_modify(|e| e.velocity = player_move_dir.normalize() * cc.speed);
+            
+            if self.spell_menu.is_none() {
+                if inputs.events.iter().any(|e| match e { KEvent::MouseLeft(true) => {true}, _ => {false}}) {
+                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], false));
+                } else if inputs.held_lmb {
+                    commands.push(Command::Cast(*id, mouse_world, cc.spellbook[cc.spell_cursor as usize], true));
+                }
+            }
+        }
+        
+        if reset {
+            *self = WaveGame::new(inputs.t as f32);
+        }
+
+        if self.spell_menu.is_none() {
+            self.update(&inputs, commands);
+        }
+
 
         // Camera
         let scale = 20.0;
@@ -543,7 +487,7 @@ impl Scene for WaveGame {
         let mut buf_uv = TriangleBufferUV::new(inputs.screen_rect, ATLAS_W, ATLAS_H);
 
         // draw entities
-        self.draw_entities(&mut buf, inputs.t as f32, inputs.frame);
+        self.draw_entities(&mut buf, self.t as f32, inputs.frame);
         
         // draw level
         buf.draw_rect(level_rect, Vec3::new(0.3, 0.3, 0.3), 1.0);
@@ -595,11 +539,6 @@ impl Scene for WaveGame {
                 if let Some(learned_spell) = spell_menu.frame(&inputs, &mut buf, &mut buf_uv) {
                     player.spellbook.push(learned_spell);
                     self.spell_menu = None;
-                    match self.state {
-                        State::Recess(0) => self.state = State::Recess(1),
-                        State::Recess(n) => self.state = State::Spawn(n),
-                        _ => {},
-                    }
                 }
             }
         }

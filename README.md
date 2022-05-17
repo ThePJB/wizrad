@@ -10,3 +10,5 @@
  * QE flip through spellbook
  * left click to cast current spell
  * Escape quit, R reset
+
+ ints for entities would make things much better

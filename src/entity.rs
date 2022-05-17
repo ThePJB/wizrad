@@ -17,19 +17,19 @@ use crate::components::melee_damage::*;
 
 #[derive(Clone)]
 pub struct Entity {
-    ai: Option<AI>,
-    ai_caster: Option<AICaster>,
-    team: Option<Team>,
-    caster: Option<Caster>,
-    emitter: Option<Emitter>,
-    health: Option<Health>,
-    melee_damage: Option<MeleeDamage>,
-    projectile: Option<Projectile>,
-    render: Option<Render>,
-    expiry: Option<Expiry>,
-    physics: Option<Physics>,
-    player: Option<Player>,
-    rect: Option<Rect>,
+    pub ai: Option<AI>,
+    pub ai_caster: Option<AICaster>,
+    pub team: Option<Team>,
+    pub caster: Option<Caster>,
+    pub emitter: Option<Emitter>,
+    pub health: Option<Health>,
+    pub melee_damage: Option<MeleeDamage>,
+    pub projectile: Option<Projectile>,
+    pub render: Option<Render>,
+    pub expiry: Option<Expiry>,
+    pub physics: Option<Physics>,
+    pub player: Option<Player>,
+    pub rect: Option<Rect>,
 }
 
 // there could be such a ncie builder
@@ -147,6 +147,12 @@ impl Entity {
         self.rect = Some(rect);
         self
     }
+    
+    pub fn with_position(mut self, pos: Vec2) -> Entity {
+        let r = self.rect.unwrap();
+        self.rect = Some(Rect::new_centered(pos.x, pos.y, r.w, r.h));
+        self
+    }
 
     pub fn with_ai_caster(mut self, acquisition_range: f32, spell: Spell) -> Entity {
         self.ai_caster = Some(AICaster {
@@ -171,6 +177,7 @@ impl Entity {
             spellbook,
             speed,
             spell_cursor: 0,
+            kills: 0,
         });
         self
     }

@@ -30,7 +30,7 @@ impl Scene for Victory {
             KEvent::Keyboard(_, false) => true,
             _ => false,
         }) {
-            return (SceneOutcome::Push(Box::new(WaveGame::new())), buf, Some(buf_uv));
+            return (SceneOutcome::Push(Box::new(WaveGame::new(inputs.t as f32))), buf, Some(buf_uv));
         }
          
         (SceneOutcome::None, buf, Some(buf_uv))

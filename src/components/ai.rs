@@ -16,6 +16,8 @@ pub struct AI {
 pub struct AICaster {
     pub spell: Spell,
     pub acquisition_range: f32,
+    pub rising: bool,
+    pub unleasher: bool,
 }
 
 impl WaveGame {
@@ -62,9 +64,20 @@ impl WaveGame {
     }
 
     pub fn update_casting_ai(&mut self, t: f32, commands: &mut Vec<Command>) {
-        for (id, aic) in self.ai_caster.iter() {
+        for (id, aic) in self.ai_caster.iter_mut() {
             let my_pos = self.rect.get(id).unwrap().centroid();
             let my_team = self.team.get(id).unwrap().team;
+
+            if aic.unleasher {
+                let caster = self.caster.get(id).unwrap();
+                if caster.mana == caster.mana_max {
+                    aic.rising = false;
+                }
+                if caster.mana < 5.0 {
+                    aic.rising = true;
+                }
+            }
+            if aic.unleasher && aic.rising { continue; }
 
             let target = self.entity_ids.iter()
                 .filter(|id| self.team.contains_key(id) && self.team.get(id).unwrap().team != my_team)

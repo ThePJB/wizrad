@@ -1,5 +1,6 @@
 use crate::application::*;
 use crate::components::caster;
+use crate::components::make_entities::*;
 use crate::components::melee_damage::MeleeDamage;
 use crate::particles::*;
 use crate::renderer::*;
@@ -9,6 +10,8 @@ use crate::kmath::*;
 use crate::spell::*;
 use crate::manifest::*;
 use crate::entity_definitions::*;
+use crate::entity::*;
+use crate::actual_entity_definitions::*;
 
 use crate::components::team::*;
 use crate::components::ai::*;
@@ -20,15 +23,28 @@ use crate::components::expiry::*;
 use crate::components::emitter::*;
 use crate::components::player::*;
 use crate::components::physics::*;
+use crate::components::spawn_list::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::f32::INFINITY;
 use std::f32::consts::PI;
+use std::ops::DerefMut;
 use std::time::{Instant, Duration};
 use std::convert::TryInto;
 
 use glutin::event::VirtualKeyCode;
+
+pub struct Event {
+    pub condition: fn(&WaveGame, &FrameInputState) -> bool,
+    pub effect: fn(&mut WaveGame, &FrameInputState),
+}
+
+pub struct DamageEvent {
+    amount: f32,
+    src: u32,
+    target: u32,
+}
 
 pub struct SpellMenu {
     choices: [Spell; 3],
@@ -86,6 +102,8 @@ pub enum State {
 }
 
 pub struct WaveGame {
+    pub wave: i32,
+
     pub last_spawn: f32,
 
     pub state: State,
@@ -110,13 +128,19 @@ pub struct WaveGame {
     pub ai_caster: HashMap<u32, AICaster>,
     pub physics: HashMap<u32, Physics>,
     pub rect: HashMap<u32, Rect>,
+    pub spawn_list: HashMap<u32, SpawnList>,
+    pub make_on_damage: HashMap<u32, MakeEntitiesOnDamage>,
+    pub make_on_death: HashMap<u32, MakeEntitiesOnDeath>,
 
     pub spell_menu: Option<SpellMenu>,
+
+    pub events: Vec<Event>,
 }
 
 impl WaveGame {
     pub fn new() -> WaveGame {
         let mut wg = WaveGame {
+            wave: 0,
             state: State::Recess(0),
             last_spawn: 0.0,
             look_center: Vec2::new(0.0, 0.0),
@@ -138,10 +162,60 @@ impl WaveGame {
             ai_caster: HashMap::new(),
             physics: HashMap::new(),
             rect: HashMap::new(),
+            spawn_list: HashMap::new(),
+            make_on_damage: HashMap::new(),
+            make_on_death: HashMap::new(),
+            
+            events: Vec::new(),
+
             spell_menu: None,
         };
 
-        wg.add_player(Vec2::new(0.0, 0.0));
+        wg.add_player(Vec2::new(0.0, 5.0));
+        
+        wg.events.push(Event {
+            condition: |wg, inputs| {
+                wg.player.values().nth(0).unwrap().spellbook.len() == 0
+            }, effect: |wg, inputs| {
+                let current_spells = &wg.player.values().nth(0).unwrap().spellbook;
+                wg.spell_menu = Some(SpellMenu::new(inputs.seed * 172137163, current_spells));
+            }
+        });
+        
+        wg.events.push(Event {
+            condition: |wg, inputs| {
+                wg.player.values().nth(0).unwrap().spellbook.len() == 1
+            }, effect: |wg, inputs| {
+                let current_spells = &wg.player.values().nth(0).unwrap().spellbook;
+                wg.spell_menu = Some(SpellMenu::new(inputs.seed * 3487498743, current_spells));
+            }
+        });
+        
+        wg.events.push(Event {
+            condition: |wg, inputs| {
+                wg.player.values().nth(0).unwrap().spellbook.len() == 2
+            }, effect: |wg, inputs| {
+                wg.add_entity(&portal(SpawnList::wave1(Vec2::new(0.0, 0.0), TEAM_ENEMIES)));
+                wg.wave = 1;
+            }
+        });
+
+        wg.events.push(Event {
+            condition: |wg, inputs| {
+                if wg.spawn_list.values().nth(0).is_none() {return false};
+                let spawnlist_component = wg.spawn_list.values().nth(0).unwrap();
+                let n_enemies = wg.team.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
+                wg.wave == 1 && 
+                n_enemies == 0 &&
+                spawnlist_component.t > spawnlist_component.list[spawnlist_component.list.len() - 1].0
+
+            }, effect: |wg, inputs| {
+                let id = wg.spawn_list.keys().nth(0).unwrap();
+                wg.remove_entity(*id);
+                wg.add_entity(&portal2(Vec2::new(0.0, 0.0), TEAM_ENEMIES));
+                wg.wave = 2;
+            }
+        });
 
         println!("Welcome to WAVE GAME. Controls are WASD movement, Q-E spellbook page, Left click to cast. Survive all rounds. ");
 
@@ -163,6 +237,9 @@ impl WaveGame {
         self.ai_caster.remove(&entity_id);
         self.physics.remove(&entity_id);
         self.rect.remove(&entity_id);
+        self.make_on_damage.remove(&entity_id);
+        self.make_on_death.remove(&entity_id);
+        self.spawn_list.remove(&entity_id);
     }
 
     // p is in world space, how to make it into screen space
@@ -181,28 +258,17 @@ impl WaveGame {
         )
     }
 
+    pub fn damage_entity(&mut self, inputs: &FrameInputState, id: u32, amount: f32, buf: &mut Vec<Entity>) {
+        if !self.health.contains_key(&id) { return };
+        let health = self.health.get_mut(&id).unwrap();
+        health.damage(amount, inputs.t as f32);
 
-    pub fn spawn(&mut self, id: u32, seed: u32) {
-        let level_min = -14.5;
-        let level_max = 14.5;
-
-        let pos = match khash(seed * 123415) % 4 {
-            0 => Vec2::new(level_min, kuniform(seed * 138971377, level_min, level_max)),
-            1 => Vec2::new(level_max, kuniform(seed * 138971377, level_min, level_max)),
-            2 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_min),
-            3 => Vec2::new(kuniform(seed * 138971377, level_min, level_max), level_max),
-            _ => panic!("unreachable"),
-        };
-
-        match id {
-            0 => self.add_fbm_enemy(pos),
-            1 => self.add_zerg_enemy(TEAM_ENEMIES, pos),
-            2 => self.add_caster_enemy(pos),
-            3 => self.add_summoner_enemy(TEAM_ENEMIES, pos),
-            4 => self.add_summoner_summoner_enemy(TEAM_ENEMIES, pos),
-            5 => self.add_pulsecaster_enemy(pos),
-            6 => self.add_bloodcaster(TEAM_ENEMIES, pos),
-            _ => panic!("unreachable"),
+        if let Some(make_on_damage) = self.make_on_damage.get_mut(&id) {
+            make_on_damage.acc += amount;
+            if make_on_damage.acc > make_on_damage.thresh {
+                make_on_damage.acc = 0.0;
+                (make_on_damage.f)(self, inputs, id, buf);
+            }
         }
     }
 }
@@ -227,92 +293,16 @@ impl Scene for WaveGame {
 
         let mut commands = Vec::new();
         let mut dead_list = Vec::new();
+        let mut new_entities = Vec::new();
 
         let level_rect = Rect::new_centered(0.0, 0.0, 30.0, 30.0);
 
-
-        // new spawning
-        let enemy_count = self.team.iter().filter(|(id, com)| com.team == TEAM_ENEMIES).count() as i32;
-        if enemy_count == 0 {
-            match self.state {
-                State::Recess(0) |
-                State::Recess(1) |
-                State::Recess(3) |
-                State::Recess(5)
-                 => {
-                    if self.spell_menu.is_none() {
-                        if let Some(player) = self.player.values().nth(0) {
-                            self.spell_menu = Some(SpellMenu::new(inputs.seed * 172137163, &player.spellbook));
-                        }
-                    }
-                },
-                State::Recess(n) => {
-                    self.state = State::Spawn(n);
-                },
-                State::Spawn(n) => {
-                    match n {
-                        1 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..20 {
-                                self.spawn(1, inputs.seed * 12314121 + i);
-                            }
-                        },
-                        2 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(1, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..8 {
-                                self.spawn(6, inputs.seed * 12364171 + i);
-                            }
-                        },
-                        3 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..5 {
-                                self.spawn(5, inputs.seed * 95371 + i);
-                            }
-                        },
-                        4 => {
-                            for i in 0..10 {
-                                self.spawn(0, inputs.seed + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..10 {
-                                self.spawn(3, inputs.seed * 12364171 + i);
-                            }
-        
-                        },
-                        5 => {
-                            for i in 0..13 {
-                                self.spawn(2, inputs.seed * 12314121 + i);
-                            }
-                            for i in 0..4 {
-                                self.spawn(4, inputs.seed * 12364171 + i);
-                            }
-                        },
-                        _ => {
-                            println!("winner!");
-                            return (SceneOutcome::Pop(SceneSignal::JustPop), TriangleBuffer::new(inputs.screen_rect), None);
-                        },
-                    }
-                    self.state = State::Wave(n);
-                    println!("Wave {}", n);
-                },
-                State::Wave(n) => {
-                    self.state = State::Recess(n + 1);
-                }
-            }
+        let trigger_events: Vec<usize> = self.events.iter().enumerate().filter_map(|(idx, e)| if (e.condition)(&self, &inputs) {Some(idx)} else {None}).collect();
+        for idx in trigger_events.iter() {
+            (self.events[*idx].effect)(self, &inputs);
+        }
+        for idx in trigger_events.iter() {
+            self.events.swap_remove(*idx);
         }
 
         let mut reset = false;
@@ -326,13 +316,13 @@ impl Scene for WaveGame {
                 reset = true;
             }
         }
-        // if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
-        //     for (id, com) in self.team.iter() {
-        //         if com.team == TEAM_ENEMIES {
-        //             dead_list.push(*id);
-        //         }
-        //     }
-        // }
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::M, true) => {true}, _ => {false}}) {
+            for (id, com) in self.team.iter() {
+                if com.team == TEAM_ENEMIES {
+                    dead_list.push(*id);
+                }
+            }
+        }
 
         for (id, cc) in self.player.iter_mut() {
             let mut player_move_dir = Vec2::new(0.0, 0.0);
@@ -374,6 +364,7 @@ impl Scene for WaveGame {
             *self = WaveGame::new();
         }
 
+
         // emit particles
         for (id, ec) in self.emitter.iter_mut() {
             let mut iter_count = 0;
@@ -400,7 +391,7 @@ impl Scene for WaveGame {
         for command in commands {
             match command {
                 Command::Cast(caster_id, target, spell, repeat) => {
-                    self.cast_spell(inputs.t as f32, caster_id, target, spell, repeat);
+                    self.cast_spell(inputs.t as f32, caster_id, target, spell, repeat, inputs.seed);
                 },
             }
         }
@@ -431,6 +422,10 @@ impl Scene for WaveGame {
             return true
         });
 
+        // maybe I should get damage events, that would make the code a bit nicer
+        // in some sense collision events -> damage events
+        let mut damage_events = Vec::new();
+
         // handle projectile impacts
         for ce in collision_events.iter() {
             if let Some(proj) = self.projectile.get(&ce.subject) {
@@ -440,7 +435,9 @@ impl Scene for WaveGame {
                 if proj.aoe > 0.0 {
                     for (id, _) in self.physics.iter().filter(|(id, com)| self.rect.get(id).unwrap().centroid().dist(impact_location) <= proj.aoe && proj_team != target_team) {
                         if let Some(health) = self.health.get_mut(&id) {
-                            health.damage(proj.damage, inputs.t as f32);
+                            damage_events.push(DamageEvent{amount: proj.damage, src: proj.source, target: *id});
+                            // self.damage_entity(&inputs, *id, proj.damage);
+                            // health.damage(proj.damage, inputs.t as f32);
                             if let Some(caster_hp) = self.health.get_mut(&proj.source) {
                                 caster_hp.current += proj.lifesteal_percent * proj.damage;
                                 caster_hp.current = caster_hp.current.min(caster_hp.max);
@@ -449,7 +446,8 @@ impl Scene for WaveGame {
                     }
                 } else {
                     if let Some(health) = self.health.get_mut(&ce.object) {
-                        health.damage(proj.damage, inputs.t as f32);
+                        damage_events.push(DamageEvent{amount: proj.damage, src: proj.source, target: ce.object});
+                        // health.damage(proj.damage, inputs.t as f32);
                         if let Some(caster_hp) = self.health.get_mut(&proj.source) {
                             caster_hp.current += proj.lifesteal_percent * proj.damage;
                             caster_hp.current = caster_hp.current.min(caster_hp.max);
@@ -465,7 +463,22 @@ impl Scene for WaveGame {
         }
 
         // handle melee damage
-        self.resolve_melee_damage(&collision_events, inputs.t as f32);
+        let melee_damage_events: Vec<DamageEvent> = collision_events.iter()
+            .filter(|ce| self.team.contains_key(&ce.subject) && self.team.contains_key(&ce.object) && self.team.get(&ce.subject).unwrap().team != self.team.get(&ce.object).unwrap().team)
+            .filter_map(|ce| {
+                if let Some(md) = self.melee_damage.get(&ce.subject) {
+                    Some(DamageEvent {src: ce.subject, target: ce.object, amount: md.amount})
+                } else {
+                    None
+                }
+        }).collect();
+
+        // filter iframes. actually its done in health. could clean up
+        for damage in damage_events.iter().chain(melee_damage_events.iter()) {
+            self.damage_entity(&inputs, damage.target, damage.amount, &mut new_entities);
+        }
+
+        // self.resolve_melee_damage(&collision_events, inputs.t as f32);
 
         // expire timed lives
         for (id, timed) in self.expiry.iter() {
@@ -481,10 +494,7 @@ impl Scene for WaveGame {
             }
         }
 
-
-
-        self.fix_overlaps(&collision_events, inputs.dt as f32);
-        // apply_movement(&mut self.common, &collision_events, inputs.dt as f32);
+        self.fix_overlaps(&collision_events);
 
         // constrain to arena
         for (id, rect) in self.rect.iter_mut() {
@@ -518,6 +528,9 @@ impl Scene for WaveGame {
         self.fix_velocities(inputs.dt as f32);
 
         for dead in dead_list {
+            if let Some(make_on_death) = self.make_on_death.get(&dead) {
+                (make_on_death.f)(self, &inputs, dead, &mut new_entities);
+            }
             self.remove_entity(dead);
         }
 
@@ -531,6 +544,52 @@ impl Scene for WaveGame {
         }
         for health in self.health.values_mut() {
             health.current = health.max.min(health.current + health.regen * inputs.dt as f32)
+        }
+
+        
+        // spawn list stuff
+        for (id, spawn_list) in self.spawn_list.iter_mut() {
+            spawn_list.t += inputs.dt as f32;
+            for (t_spawn, e_spawn) in spawn_list.list.iter() {
+                if *t_spawn < spawn_list.t && *t_spawn > spawn_list.t - inputs.dt as f32 {
+                    new_entities.push(*e_spawn.clone());
+                }
+            }
+        }
+
+        for (i, entity) in new_entities.iter_mut().enumerate() {
+            entity.rect.unwrap().x += kuniform(i as u32 * 17231653 + inputs.seed, -0.05, 0.05);
+            entity.rect.unwrap().y += kuniform(i as u32 * 12983715 + inputs.seed, -0.05, 0.05);
+            self.add_entity(entity);
+        }
+
+        {   // trying to separate so they dont get physics kick
+            // it actually gets more cooked the more you do lol
+            // maybe its just when they spawn exactly on top of one another.
+            for i in 0..3 {
+                let mut cols = self.collisions();
+                
+                // filter projectils etc
+                cols.retain(|ce| {
+                    if !self.team.contains_key(&ce.subject) {return false;}
+                    if !self.team.contains_key(&ce.object) {return false;}
+        
+                    let steam = self.team.get(&ce.subject).unwrap().team;
+                    let oteam = self.team.get(&ce.object).unwrap().team;
+                    let sproj = self.projectile.get(&ce.subject).is_some();
+                    let oproj = self.projectile.get(&ce.object).is_some();
+        
+                    if steam == oteam && (oproj || sproj) {
+                        return false;
+                    }
+                    if oproj && sproj {
+                        return false;
+                    }
+        
+                    return true
+                });
+                self.fix_overlaps(&cols);
+            }
         }
 
         // Camera

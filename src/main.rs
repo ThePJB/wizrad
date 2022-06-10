@@ -8,6 +8,7 @@ mod kgui;
 mod components;
 mod particles;
 mod entity_definitions;
+mod actual_entity_definitions;
 mod entity;
 mod spell;
 

@@ -31,7 +31,7 @@ pub struct Application {
     window: glutin::WindowedContext<glutin::PossiblyCurrent>,
 
     renderer: Renderer,
-    rendererUV: RendererUV,
+    renderer_uv: RendererUV,
     event_aggregator: EventAggregator,
 
     pub xres: f32,
@@ -87,7 +87,7 @@ impl Application {
             .expect("couldn't load atlas from ./atlas.png");
 
         let renderer = Renderer::new(&gl, basic_shader);
-        let rendererUV = RendererUV::new(&gl, uv_shader, atlas);
+        let renderer_uv = RendererUV::new(&gl, uv_shader, atlas);
 
         let mut scene_stack: Vec<Box<dyn Scene>> = Vec::new();
         scene_stack.push(Box::new(Victory{t: 0.0}));
@@ -98,7 +98,7 @@ impl Application {
             gl,
             window,
             renderer,
-            rendererUV,
+            renderer_uv,
             event_aggregator: EventAggregator::new(default_xres, default_yres),
 
             xres: default_xres,
@@ -157,7 +157,7 @@ impl Application {
             let (so, tris, op_triuvs) = self.scene_stack[stack_idx].frame(inputs);
             self.renderer.present(&self.gl, tris);
             if let Some(tri_uvs) = op_triuvs {
-                self.rendererUV.present(&self.gl, tri_uvs);
+                self.renderer_uv.present(&self.gl, tri_uvs);
             }
             self.window.swap_buffers().unwrap();
 

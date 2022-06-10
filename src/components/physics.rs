@@ -61,7 +61,7 @@ impl WaveGame {
             .collect()
     }
 
-    pub fn fix_overlaps(&mut self, cols: &[CollisionEvent], dt: f32) {
+    pub fn fix_overlaps(&mut self, cols: &[CollisionEvent]) {
         for col in cols {
             let omass = self.physics.get(&col.object).unwrap().mass;
             let sphys = self.physics.get(&col.subject).unwrap();

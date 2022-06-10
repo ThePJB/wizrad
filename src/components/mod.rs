@@ -9,3 +9,5 @@ pub mod melee_damage;
 pub mod emitter;
 pub mod player;
 pub mod physics;
+pub mod spawn_list;
+pub mod make_entities;

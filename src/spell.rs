@@ -19,10 +19,11 @@ pub enum Spell {
     Firestorm,
     Water,
     Homing,
+    Barrage,
 }
 
 impl WaveGame {
-    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool) {
+    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool, seed: u32) {
         let caster_team = self.team.get(&caster_id).unwrap().team;
         let caster_pos = self.rect.get(&caster_id).unwrap().centroid();
         if let Some(cc) = self.caster.get_mut(&caster_id) {
@@ -36,6 +37,25 @@ impl WaveGame {
                         self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
                         self.add_flame_projectile(caster_id, target, t);
+                    }
+                },
+                Spell::Barrage => {
+                    if cc.last_cast + 0.1 > t { return ; }
+                    cc.last_cast = t;
+
+
+                    let cost = 5.0;
+                    if cc.mana >= cost {
+                        cc.mana -= cost;
+                        let spread = 0.6;
+                        let vhat = (target - caster_pos).normalize().rotate(kuniform(seed * 12351, -spread, spread));
+                        self.add_entity(&Entity::new()
+                            .with_team(caster_team)
+                            .with_physics(10.0, vhat * 9.0)
+                            .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.5, 0.5))
+                            .with_projectile(caster_id, 30.0)
+                            .with_emitter(0.05, Vec3::new(0.6, 0.0, 0.8), 2.0, 0.7, 0.1)
+                            .with_render_solid(Vec3::new(0.8, 0.0, 0.8)));
                     }
                 },
                 Spell::Water => {
@@ -66,7 +86,7 @@ impl WaveGame {
                             .with_projectile(caster_id, 34.0)
                             .with_emitter(0.05, Vec3::new(0.8, 0.0, 0.8), 2.0, 0.7, 0.1)
                             .with_render_solid(Vec3::new(0.8, 0.0, 0.8));
-                        self.add_entity(missile);
+                        self.add_entity(&missile);
                     }
                 },
                 Spell::Homing => {
@@ -92,9 +112,9 @@ impl WaveGame {
                         let m3 = m1.clone()
                             .with_physics(10.0, (target - caster_pos).normalize().rotate(1.0) * speed);
 
-                        self.add_entity(m1);
-                        self.add_entity(m2);
-                        self.add_entity(m3);
+                        self.add_entity(&m1);
+                        self.add_entity(&m2);
+                        self.add_entity(&m3);
                     }
                 },
                 Spell::Pulse => {
@@ -111,7 +131,7 @@ impl WaveGame {
                             .with_emitter(0.05, Vec3::new(0.0, 0.8, 0.0), 3.0, 0.3, 0.1)
                             .with_render_solid(Vec3::new(0.0, 0.8, 0.0))
                             .with_expiry(t + (4.0 / 25.0));
-                    self.add_entity(missile);
+                    self.add_entity(&missile);
                     }
                 },
                 Spell::Lifesteal => {
@@ -128,7 +148,7 @@ impl WaveGame {
                             .with_projectile_ex(caster_id, 20.0, 0.0, 0.0, 0.7)
                             .with_emitter(0.05, Vec3::new(0.8, 0.0, 0.0), 2.0, 0.7, 0.1)
                             .with_render_solid(Vec3::new(0.8, 0.0, 0.0));
-                        self.add_entity(missile);
+                        self.add_entity(&missile);
                     }
                 },
                 Spell::Fireball => {
@@ -147,7 +167,7 @@ impl WaveGame {
                     let cost = 8.0;
                     if cc.mana >= cost {
                         cc.mana -= cost;
-                        self.add_entity(Entity::new()
+                        self.add_entity(&Entity::new()
                             .with_team(caster_team)
                             .with_physics(4.0, (target - caster_pos).normalize() * 15.0)
                             .with_rect(Rect::new_centered(caster_pos.x, caster_pos.y, 0.5, 0.5))
@@ -220,5 +240,6 @@ pub fn spell_sprite(spell: Spell) -> i32 {
         Spell::Homing => ICON_HOMING,
         
         Spell::SummonSummoners => 0,
+        Spell::Barrage => 0,
     }
 }

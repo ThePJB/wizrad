@@ -27,7 +27,7 @@ impl WaveGame {
             .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
             .with_health(100.0, 1.0)
             .with_render_solid(Vec3::new(1.0, 0.0, 1.0));
-        self.add_entity(player);
+        self.add_entity(&player);
     }
     
     pub fn add_fbm_enemy(&mut self, pos: Vec2) {
@@ -40,7 +40,7 @@ impl WaveGame {
             .with_health(50.0, 1.0)
             .with_ai(10.0, 0.0, 4.0, 6.0)
             .with_render_solid(Vec3::new(1.0, 0.0, 0.0));
-        self.add_entity(goon);
+        self.add_entity(&goon);
     }
 
     pub fn add_zerg_enemy(&mut self, team: u32, pos: Vec2) {
@@ -52,7 +52,7 @@ impl WaveGame {
             .with_health(20.0, 1.0)
             .with_ai(10.0, 0.0, 7.0, 6.0)
             .with_render_solid(Vec3::new(0.7, 0.0, 0.0));
-        self.add_entity(zerg);
+        self.add_entity(&zerg);
     }
 
     pub fn add_caster_enemy(&mut self, pos: Vec2) {
@@ -65,7 +65,7 @@ impl WaveGame {
             .with_render_solid(Vec3::new(0.0, 0.8, 0.8))
             .with_ai_caster(9.0, Spell::Missile)
             .with_caster(10.0, 3.0);
-        self.add_entity(caster);
+        self.add_entity(&caster);
     }
     
     pub fn add_pulsecaster_enemy(&mut self, pos: Vec2) {
@@ -79,7 +79,7 @@ impl WaveGame {
             .with_render_solid(Vec3::new(0.8, 0.6, 0.8))
             .with_ai_caster(3.0, Spell::Pulse)
             .with_caster(50.0, 12.0);
-        self.add_entity(caster);
+        self.add_entity(&caster);
     }
     
     pub fn add_bloodcaster(&mut self, team: u32, pos: Vec2) {
@@ -92,7 +92,7 @@ impl WaveGame {
             .with_render_solid(Vec3::new(0.4, 0.3, 0.3))
             .with_ai_caster(7.0, Spell::Lifesteal)
             .with_caster(0.0, 0.0);
-        self.add_entity(caster);
+        self.add_entity(&caster);
     }
 
     pub fn add_summoner_enemy(&mut self, team: u32, pos: Vec2) {
@@ -105,7 +105,7 @@ impl WaveGame {
             .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
             .with_ai_caster(10.0, Spell::SummonRushers)
             .with_caster(20.0, 2.0);
-        self.add_entity(caster);
+        self.add_entity(&caster);
     }
 
     pub fn add_summoner_summoner_enemy(&mut self, team: u32, pos: Vec2) {
@@ -118,7 +118,7 @@ impl WaveGame {
             .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
             .with_ai_caster(12.0, Spell::SummonSummoners)
             .with_caster(100.0, 3.0);
-        self.add_entity(caster);
+        self.add_entity(&caster);
     }
     
     pub fn add_flame_projectile(&mut self, caster: u32, target: Vec2, t: f32) {

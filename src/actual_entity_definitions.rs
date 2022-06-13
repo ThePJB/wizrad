@@ -12,18 +12,32 @@ use crate::spell::*;
 // SpawnList big vec of entities and times to spawn them
 // roam
 
-pub fn portal(spawns: SpawnList) -> Entity {
+pub fn portal1(pos: Vec2, team: u32) -> Entity {
     let mut portal = Entity::new()
-        .with_rect(Rect::new_centered(0.0, 0.0, 1.0, 2.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 2.0))
         .with_render_solid(Vec3::new(0.0, 1.0, 0.0));
 
-    portal.spawn_list = Some(spawns);
+    let mut s = SpawnList::builder();
+    for i in 0..=40 {
+        s.spawn_entity(zerg(pos, team));
+        
+        if i % 2 == 0 {
+            s.spawn_entity(deathspawner(pos, team));
+        }
+        if i % 10 == 0 {
+            s.spawn_entity(barrager(pos, team));
+        }
+        s.wait(0.5);
+    }
+    s.build();
+
+    portal.spawn_list = Some(s);
     portal
 }
 
 pub fn portal2(pos: Vec2, team: u32) -> Entity {
     let mut portal = Entity::new()
-        .with_rect(Rect::new_centered(0.0, 0.0, 1.0, 2.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 2.0))
         .with_render_solid(Vec3::new(0.8, 0.0, 1.0));
 
     let mut s = SpawnList::builder();
@@ -33,6 +47,28 @@ pub fn portal2(pos: Vec2, team: u32) -> Entity {
         }
         s.spawn_entity(zerg(pos, team));
         s.wait(0.5);
+    }
+    s.build();
+
+    portal.spawn_list = Some(s);
+    portal
+}
+
+pub fn portal3(pos: Vec2, team: u32) -> Entity {
+    let mut portal = Entity::new()
+        .with_rect(Rect::new_centered(pos.x, pos.y, 0.0, 2.0))
+        .with_render_solid(Vec3::new(0.8, 0.0, 0.0));
+
+    let mut s = SpawnList::builder();
+    for i in 0..=40 {
+        if i % 4 == 0 {
+            s.spawn_entity(summoner(pos, team));
+        }
+        if i % 10 == 0 {
+            s.spawn_entity(summoner_summoner(pos, team));
+            s.spawn_entity(barrager(pos, team));
+        }
+        s.wait(0.75);
     }
     s.build();
 
@@ -88,6 +124,30 @@ pub fn zerg(pos: Vec2, team: u32) -> Entity {
         .with_health(20.0, 1.0)
         .with_ai(10.0, 0.0, 7.0, 6.0)
         .with_render_solid(Vec3::new(0.7, 0.0, 0.0))
+}
+
+pub fn summoner(pos: Vec2, team: u32) -> Entity {
+    Entity::new()
+        .with_team(team)
+        .with_physics(2.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.2, 1.2))
+        .with_health(100.0, 1.0)
+        .with_ai(10.0, 0.0, 2.0, 6.0)
+        .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
+        .with_ai_caster(10.0, Spell::SummonRushers)
+        .with_caster(20.0, 2.0)
+}
+
+pub fn summoner_summoner(pos: Vec2, team: u32) -> Entity {
+    Entity::new()
+        .with_team(team)
+        .with_physics(4.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.8, 1.8))
+        .with_health(200.0, 1.0)
+        .with_ai(10.0, 0.0, 1.6, 6.0)
+        .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
+        .with_ai_caster(12.0, Spell::SummonSummoners)
+        .with_caster(100.0, 3.0)
 }
 
 pub fn magic_missile_caster(pos: Vec2, team: u32) -> Entity {

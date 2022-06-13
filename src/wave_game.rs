@@ -195,7 +195,7 @@ impl WaveGame {
             condition: |wg, inputs| {
                 wg.player.values().nth(0).unwrap().spellbook.len() == 2
             }, effect: |wg, inputs| {
-                wg.add_entity(&portal(SpawnList::wave1(Vec2::new(0.0, 0.0), TEAM_ENEMIES)));
+                wg.add_entity(&portal3(Vec2::new(0.0, 0.0), TEAM_ENEMIES));
                 wg.wave = 1;
             }
         });
@@ -494,7 +494,7 @@ impl Scene for WaveGame {
             }
         }
 
-        self.fix_overlaps(&collision_events);
+        self.fix_overlaps(&collision_events, 1.0);
 
         // constrain to arena
         for (id, rect) in self.rect.iter_mut() {
@@ -525,7 +525,7 @@ impl Scene for WaveGame {
             }
         }
 
-        self.fix_velocities(inputs.dt as f32);
+        // self.fix_velocities(inputs.dt as f32);
 
         for dead in dead_list {
             if let Some(make_on_death) = self.make_on_death.get(&dead) {
@@ -566,7 +566,11 @@ impl Scene for WaveGame {
         {   // trying to separate so they dont get physics kick
             // it actually gets more cooked the more you do lol
             // maybe its just when they spawn exactly on top of one another.
-            for i in 0..3 {
+            // yeah this is just fucked, what if it is exactly on top case? or one within
+
+            // i reckon within just do centroid, some amount, and if centroid is equal, random direction, just make sure its opposite
+            // just not enough noise
+            for i in 0..4 {
                 let mut cols = self.collisions();
                 
                 // filter projectils etc
@@ -588,7 +592,7 @@ impl Scene for WaveGame {
         
                     return true
                 });
-                self.fix_overlaps(&cols);
+                self.fix_overlaps(&cols, 0.25);
             }
         }
 

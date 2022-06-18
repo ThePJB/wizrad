@@ -56,7 +56,7 @@ pub fn portal2(pos: Vec2, team: u32) -> Entity {
 
 pub fn portal3(pos: Vec2, team: u32) -> Entity {
     let mut portal = Entity::new()
-        .with_rect(Rect::new_centered(pos.x, pos.y, 0.0, 2.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 2.0))
         .with_render_solid(Vec3::new(0.8, 0.0, 0.0));
 
     let mut s = SpawnList::builder();

@@ -525,7 +525,7 @@ impl Scene for WaveGame {
             }
         }
 
-        // self.fix_velocities(inputs.dt as f32);
+        self.fix_velocities(inputs.dt as f32);
 
         for dead in dead_list {
             if let Some(make_on_death) = self.make_on_death.get(&dead) {

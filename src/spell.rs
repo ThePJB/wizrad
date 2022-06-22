@@ -18,12 +18,13 @@ pub enum Spell {
     Fireball,
     Firestorm,
     Water,
+    Healing,
     Homing,
     Barrage,
 }
 
 impl WaveGame {
-    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool, seed: u32) {
+    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool, seed: u32, dt: f32) {
         let caster_team = self.team.get(&caster_id).unwrap().team;
         let caster_pos = self.rect.get(&caster_id).unwrap().centroid();
         if let Some(cc) = self.caster.get_mut(&caster_id) {
@@ -186,9 +187,9 @@ impl WaveGame {
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
     
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0));
-                        self.add_zerg_enemy(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0));
+                        self.add_entity(&entity_zerg(team, pos.offset_r_theta(1.0, 0.0)));
+                        self.add_entity(&entity_zerg(team, pos.offset_r_theta(1.0, 2.0*PI / 3.0)));
+                        self.add_entity(&entity_zerg(team, pos.offset_r_theta(1.0, 4.0*PI / 3.0)));
                     }
                 },
                 Spell::SummonBloodcasters => {
@@ -202,8 +203,8 @@ impl WaveGame {
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
                         
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, 0.0));
-                        self.add_bloodcaster(team, pos.offset_r_theta(1.0, PI));
+                        self.add_entity(&entity_bloodcaster(team, pos.offset_r_theta(1.0, 0.0)));
+                        self.add_entity(&entity_bloodcaster(team, pos.offset_r_theta(1.0, PI)));
                     }
                 },
                 Spell::SummonSummoners => {
@@ -215,11 +216,23 @@ impl WaveGame {
                         cc.mana -= cost;
                         let pos = self.rect.get(&caster_id).unwrap().centroid();
                         let team = self.team.get(&caster_id).unwrap().team;
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 0.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0));
-                        self.add_summoner_enemy(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0));
+                        
+                        self.add_entity(&entity_summoner(team, pos.offset_r_theta(2.0, 0.0)));
+                        self.add_entity(&entity_summoner(team, pos.offset_r_theta(2.0, 2.0*PI / 3.0)));
+                        self.add_entity(&entity_summoner(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0)));
                     }
                 },
+                Spell::Healing => {
+                    let health = self.health.get_mut(&caster_id).unwrap();
+                    
+                    let cost = 30.0;
+                    let healing = 30.0;
+                    if cc.mana >= cost * dt {
+                        health.current += healing * dt;
+                        cc.mana -= cost * dt;
+                        cc.last_cast = t;
+                    }
+                }
             }
         }
     }
@@ -239,6 +252,7 @@ pub fn spell_sprite(spell: Spell) -> i32 {
         
         Spell::Homing => ICON_HOMING,
         
+        Spell::Healing => ICON_HEALING,
         Spell::SummonSummoners => 0,
         Spell::Barrage => 0,
     }

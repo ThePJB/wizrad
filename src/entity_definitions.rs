@@ -16,111 +16,106 @@ use crate::components::player::*;
 use crate::components::melee_damage::*;
 use crate::components::physics::*;
 
-impl WaveGame {
-    pub fn add_player(&mut self, pos: Vec2) {
-        let player = Entity::new()
-            // .with_player(10.0, vec![Spell::Missile, Spell::Pulse, Spell::ConeFlames, Spell::Water, Spell::Fireball, Spell::SummonRushers, Spell::Lifesteal, Spell::SummonBloodcasters, Spell::Homing])
-            .with_player(10.0, vec![])
-            .with_caster(100.0, 15.0)
-            .with_team(TEAM_PLAYER)
-            .with_physics(1.0, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
-            .with_health(100.0, 1.0)
-            .with_render_solid(Vec3::new(1.0, 0.0, 1.0));
-        self.add_entity(&player);
-    }
-    
-    pub fn add_fbm_enemy(&mut self, pos: Vec2) {
-        let goon = Entity::new()
-            .with_team(TEAM_ENEMIES)
-            .with_physics(1.0, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
+const acquisition_range: f32 = 30.0;
 
-            .with_melee_damage(20.0)
-            .with_health(50.0, 1.0)
-            .with_ai(10.0, 0.0, 4.0, 6.0)
-            .with_render_solid(Vec3::new(1.0, 0.0, 0.0));
-        self.add_entity(&goon);
-    }
+pub fn entity_player(pos: Vec2) -> Entity {
+    Entity::new()
+        // .with_player(10.0, vec![Spell::Missile, Spell::Pulse, Spell::ConeFlames, Spell::Water, Spell::Fireball, Spell::SummonRushers, Spell::Lifesteal, Spell::SummonBloodcasters, Spell::Homing])
+        .with_player(10.0, vec![])
+        .with_caster(100.0, 30.0)
+        .with_team(TEAM_PLAYER)
+        .with_physics(1.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
+        .with_health(100.0, 1.0)
+        .with_render_solid(Vec3::new(1.0, 0.0, 1.0))
+}
 
-    pub fn add_zerg_enemy(&mut self, team: u32, pos: Vec2) {
-        let zerg = Entity::new()
-            .with_team(team)
-            .with_physics(0.25, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 0.5, 0.5))
-            .with_melee_damage(20.0)
-            .with_health(20.0, 1.0)
-            .with_ai(10.0, 0.0, 7.0, 6.0)
-            .with_render_solid(Vec3::new(0.7, 0.0, 0.0));
-        self.add_entity(&zerg);
-    }
+pub fn entity_basic(pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(TEAM_ENEMIES)
+        .with_physics(1.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.0, 1.0))
+        .with_melee_damage(20.0)
+        .with_health(50.0, 1.0)
+        .with_ai(acquisition_range, 0.0, 4.0, 6.0)
+        .with_render_solid(Vec3::new(1.0, 0.0, 0.0))
+}
 
-    pub fn add_caster_enemy(&mut self, pos: Vec2) {
-        let caster = Entity::new()
-            .with_team(TEAM_ENEMIES)
-            .with_physics(0.7, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
-            .with_health(20.0, 1.0)
-            .with_ai(10.0, 5.0, 3.0, 6.0)
-            .with_render_solid(Vec3::new(0.0, 0.8, 0.8))
-            .with_ai_caster(9.0, Spell::Missile)
-            .with_caster(10.0, 3.0);
-        self.add_entity(&caster);
-    }
-    
-    pub fn add_pulsecaster_enemy(&mut self, pos: Vec2) {
-        let caster = Entity::new()
-            .with_team(TEAM_ENEMIES)
-            .with_physics(0.7, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
+pub fn entity_zerg(team: u32, pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(team)
+        .with_physics(0.25, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 0.5, 0.5))
+        .with_melee_damage(20.0)
+        .with_health(20.0, 1.0)
+        .with_ai(acquisition_range, 0.0, 7.0, 6.0)
+        .with_render_solid(Vec3::new(0.7, 0.0, 0.0))
+}
 
-            .with_health(30.0, 1.0)
-            .with_ai(10.0, 2.0, 5.0, 6.0)
-            .with_render_solid(Vec3::new(0.8, 0.6, 0.8))
-            .with_ai_caster(3.0, Spell::Pulse)
-            .with_caster(50.0, 12.0);
-        self.add_entity(&caster);
-    }
-    
-    pub fn add_bloodcaster(&mut self, team: u32, pos: Vec2) {
-        let caster = Entity::new()
-            .with_team(team)
-            .with_physics(0.7, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
-            .with_health(40.0, 1.0)
-            .with_ai(10.0, 5.0, 5.0, 6.0)
-            .with_render_solid(Vec3::new(0.4, 0.3, 0.3))
-            .with_ai_caster(7.0, Spell::Lifesteal)
-            .with_caster(0.0, 0.0);
-        self.add_entity(&caster);
-    }
+pub fn entity_caster(pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(TEAM_ENEMIES)
+        .with_physics(0.7, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
+        .with_health(20.0, 1.0)
+        .with_ai(acquisition_range, 5.0, 3.0, 6.0)
+        .with_render_solid(Vec3::new(0.0, 0.8, 0.8))
+        .with_ai_caster(9.0, Spell::Missile)
+        .with_caster(10.0, 3.0)
+}
 
-    pub fn add_summoner_enemy(&mut self, team: u32, pos: Vec2) {
-        let caster = Entity::new()
-            .with_team(team)
-            .with_physics(2.0, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 1.2, 1.2))
-            .with_health(100.0, 1.0)
-            .with_ai(10.0, 0.0, 2.0, 6.0)
-            .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
-            .with_ai_caster(10.0, Spell::SummonRushers)
-            .with_caster(20.0, 2.0);
-        self.add_entity(&caster);
-    }
+pub fn entity_pulsecaster(pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(TEAM_ENEMIES)
+        .with_physics(0.7, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
 
-    pub fn add_summoner_summoner_enemy(&mut self, team: u32, pos: Vec2) {
-        let caster = Entity::new()
-            .with_team(team)
-            .with_physics(4.0, Vec2::new(0.0, 0.0))
-            .with_rect(Rect::new_centered(pos.x, pos.y, 1.8, 1.8))
-            .with_health(200.0, 1.0)
-            .with_ai(10.0, 0.0, 1.6, 6.0)
-            .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
-            .with_ai_caster(12.0, Spell::SummonSummoners)
-            .with_caster(100.0, 3.0);
-        self.add_entity(&caster);
-    }
-    
+        .with_health(30.0, 1.0)
+        .with_ai(acquisition_range, 2.0, 5.0, 6.0)
+        .with_render_solid(Vec3::new(0.8, 0.6, 0.8))
+        .with_ai_caster(3.0, Spell::Pulse)
+        .with_caster(50.0, 12.0)
+}
+
+pub fn entity_bloodcaster(team: u32, pos: Vec2) -> Entity{
+    Entity::new()    
+        .with_team(team)
+        .with_physics(0.7, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 0.9, 0.9))
+        .with_health(40.0, 1.0)
+        .with_ai(acquisition_range, 5.0, 5.0, 6.0)
+        .with_render_solid(Vec3::new(0.4, 0.3, 0.3))
+        .with_ai_caster(7.0, Spell::Lifesteal)
+        .with_caster(0.0, 0.0)
+}
+
+pub fn entity_summoner(team: u32, pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(team)
+        .with_physics(2.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.2, 1.2))
+        .with_health(100.0, 1.0)
+        .with_ai(acquisition_range, 0.0, 2.0, 6.0)
+        .with_render_solid(Vec3::new(0.5, 0.0, 0.0))
+        .with_ai_caster(10.0, Spell::SummonRushers)
+        .with_caster(20.0, 2.0)
+}
+
+pub fn entity_summoner_summoner(team: u32, pos: Vec2) -> Entity {
+    Entity::new()
+        .with_team(team)
+        .with_physics(4.0, Vec2::new(0.0, 0.0))
+        .with_rect(Rect::new_centered(pos.x, pos.y, 1.8, 1.8))
+        .with_health(200.0, 1.0)
+        .with_ai(acquisition_range, 0.0, 1.6, 6.0)
+        .with_render_solid(Vec3::new(0.3, 0.0, 0.0))
+        .with_ai_caster(12.0, Spell::SummonSummoners)
+        .with_caster(100.0, 3.0)
+}
+
+
+
+impl WaveGame {  
     pub fn add_flame_projectile(&mut self, caster: u32, target: Vec2, t: f32) {
         let id = self.entity_id_counter;
         self.entity_id_counter += 1;

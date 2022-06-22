@@ -11,6 +11,8 @@ mod entity_definitions;
 mod actual_entity_definitions;
 mod entity;
 mod spell;
+mod spawner;
+mod spell_menu;
 
 mod wave_game;
 mod tutorial;

@@ -11,6 +11,7 @@
  * left click to cast current spell
  * Escape quit, R reset
 
+<<<<<<< HEAD
 
 it sucks specifying events, conditions, actions.
 have events: condition fn ptr, action: e.g. make events
@@ -30,3 +31,6 @@ no capture but its fine for those global things
 
 
 maybe spells could be function pointers
+=======
+ ints for entities would make things much better
+>>>>>>> continuous

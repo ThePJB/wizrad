@@ -9,12 +9,13 @@ pub struct Health {
 }
 
 impl Health {
-    pub fn damage(&mut self, amount: f32, t: f32) {
+    pub fn damage(&mut self, amount: f32, t: f32) -> bool {
         if t - self.invul_time > INVUL_TIME {
             if amount > INVUL_DAMAGE_THRESHOLD {
                 self.invul_time = t;
             }
             self.current -= amount;
         }
+        self.current <= 0.0
     }
 }

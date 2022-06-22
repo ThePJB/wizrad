@@ -155,6 +155,12 @@ impl Entity {
         self.rect = Some(rect);
         self
     }
+    
+    pub fn with_position(mut self, pos: Vec2) -> Entity {
+        let r = self.rect.unwrap();
+        self.rect = Some(Rect::new_centered(pos.x, pos.y, r.w, r.h));
+        self
+    }
 
     pub fn with_ai_caster(mut self, acquisition_range: f32, spell: Spell) -> Entity {
         self.ai_caster = Some(AICaster {
@@ -190,6 +196,7 @@ impl Entity {
             spellbook,
             speed,
             spell_cursor: 0,
+            kills: 0,
         });
         self
     }

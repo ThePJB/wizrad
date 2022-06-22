@@ -91,7 +91,7 @@ impl Application {
 
         let mut scene_stack: Vec<Box<dyn Scene>> = Vec::new();
         scene_stack.push(Box::new(Victory{t: 0.0}));
-        scene_stack.push(Box::new(WaveGame::new()));
+        scene_stack.push(Box::new(WaveGame::new(0.0)));
         scene_stack.push(Box::new(Tutorial{}));
 
         Application {

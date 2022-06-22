@@ -113,7 +113,7 @@ fn test_overlap_amount() {
 // i thought my noise wqould fiox it, would be good to check 
 #[test]
 fn test_axis_pen() {
-    let mut wg = WaveGame::new();
+    let mut wg = WaveGame::new(0.0);
 
     wg.add_entity(&Entity::new()
         .with_rect(Rect::new_centered(0.0, 0.0, 2.0, 2.0))

@@ -50,6 +50,7 @@ impl SpellMenu {
             Spell::SummonBloodcasters,
             Spell::SummonRushers,
             Spell::Homing,
+            Spell::Healing,
         ];
 
         spell_list.retain(|s| !current_spells.contains(s));
@@ -95,6 +96,7 @@ pub enum State {
 pub struct WaveGame {
     pub t: f64,
     pub look_center: Vec2,
+    pub pause: bool,
 
     pub particle_system: ParticleSystem,
     pub spawn_system: Spawner,
@@ -131,6 +133,8 @@ impl WaveGame {
         spawner.add_spawn_entity(entity_summoner_summoner(TEAM_ENEMIES, Vec2::new(0.0, 0.0)), 20.0);
 
         let mut wg = WaveGame {
+            pause: false,
+
             t: 0.0,
             look_center: Vec2::new(0.0, 0.0),
             particle_system: ParticleSystem{particles: Vec::new()},
@@ -194,7 +198,7 @@ impl WaveGame {
         for command in commands {
             match command {
                 Command::Cast(caster_id, target, spell, repeat) => {
-                    self.cast_spell(self.t as f32, caster_id, target, spell, repeat);
+                    self.cast_spell(self.t as f32, caster_id, target, spell, repeat, inputs.dt as f32);
                 },
             }
         }
@@ -427,9 +431,12 @@ impl Scene for WaveGame {
             return (SceneOutcome::QuitProgram, TriangleBuffer::new(inputs.screen_rect), None);
         }
         if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::R, true) => {true}, _ => {false}}) {
-            if self.player.iter().nth(0).is_none() {
+            // if self.player.iter().nth(0).is_none() {
                 reset = true;
-            }
+            // }
+        }
+        if inputs.events.iter().any(|e| match e { KEvent::Keyboard(VirtualKeyCode::P, true) => {true}, _ => {false}}) {
+            self.pause = !self.pause;
         }
 
         for (id, cc) in self.player.iter_mut() {
@@ -472,7 +479,7 @@ impl Scene for WaveGame {
             *self = WaveGame::new(inputs.t as f32);
         }
 
-        if self.spell_menu.is_none() {
+        if self.spell_menu.is_none() && self.pause == false {
             self.update(&inputs, commands);
         }
 

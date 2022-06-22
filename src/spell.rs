@@ -18,11 +18,12 @@ pub enum Spell {
     Fireball,
     Firestorm,
     Water,
+    Healing,
     Homing,
 }
 
 impl WaveGame {
-    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool) {
+    pub fn cast_spell(&mut self, t: f32, caster_id: u32, target: Vec2, spell: Spell, repeat: bool, dt: f32) {
         let caster_team = self.team.get(&caster_id).unwrap().team;
         let caster_pos = self.rect.get(&caster_id).unwrap().centroid();
         if let Some(cc) = self.caster.get_mut(&caster_id) {
@@ -201,6 +202,17 @@ impl WaveGame {
                         self.add_entity(entity_summoner(team, pos.offset_r_theta(2.0, 4.0*PI / 3.0)));
                     }
                 },
+                Spell::Healing => {
+                    let health = self.health.get_mut(&caster_id).unwrap();
+                    
+                    let cost = 30.0;
+                    let healing = 30.0;
+                    if cc.mana >= cost * dt {
+                        health.current += healing * dt;
+                        cc.mana -= cost * dt;
+                        cc.last_cast = t;
+                    }
+                }
             }
         }
     }
@@ -220,6 +232,7 @@ pub fn spell_sprite(spell: Spell) -> i32 {
         
         Spell::Homing => ICON_HOMING,
         
+        Spell::Healing => ICON_HEALING,
         Spell::SummonSummoners => 0,
     }
 }

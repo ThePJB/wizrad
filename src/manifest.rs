@@ -8,6 +8,8 @@ pub const ICON_FIREBALL: i32 = 6;
 pub const ICON_WATER: i32 = 7;
 pub const ICON_HOMING: i32 = 8;
 pub const ICON_FIRESTORM: i32 = 9;
+pub const ICON_HEALING: i32 = 10;
+pub const ICON_DEATHRAY: i32 = 10;
 
 pub const BOOK_LEFT: i32 = 20;
 pub const BOOK_RIGHT: i32 = 21;

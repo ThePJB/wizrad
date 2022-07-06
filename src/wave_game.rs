@@ -242,6 +242,7 @@ impl WaveGame {
                                 // player kill tracking
                                 if let Some(player) = self.player.get_mut(&proj.source) {
                                     player.kills += 1;
+                                    // bug: multiple tracking of kill
                                     println!("kills: {}", player.kills);
                                 }
                             };

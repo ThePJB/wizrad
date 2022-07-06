@@ -12,3 +12,8 @@
  * Escape quit, R reset
 
  ints for entities would make things much better
+
+ this but spells overwrite and upgrade
+ would need to redesign form the ground up
+ its a lot of content
+ lets do something more minimal instead
